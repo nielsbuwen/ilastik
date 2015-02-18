@@ -900,3 +900,14 @@ class ObjectClassificationGui(LabelingGui, ExportingGui):
         :rtype: dict
         """
         return self.op.ComputedFeatureNames([]).wait()
+
+    def unlock_gui(self, *_):
+        self.applet.busy = False
+        self.applet.appletStateUpdateRequested.emit()
+
+    def lock_gui(self):
+        self.applet.busy = True
+        self.applet.appletStateUpdateRequested.emit()
+
+    def get_export_dialog_title(self):
+        return "Export Object Information TODO: get lane"
