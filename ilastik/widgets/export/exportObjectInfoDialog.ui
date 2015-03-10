@@ -25,7 +25,7 @@
         <x>0</x>
         <y>0</y>
         <width>504</width>
-        <height>377</height>
+        <height>408</height>
        </rect>
       </property>
       <attribute name="label">
@@ -170,20 +170,6 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="settingsBox">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>504</width>
-        <height>377</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Settings</string>
-      </attribute>
-      <layout class="QGridLayout" name="gridLayout_3"/>
-     </widget>
     </widget>
    </item>
    <item>
@@ -252,22 +238,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>selectNoFeatures</sender>
-   <signal>clicked()</signal>
-   <receiver>ExportObjectInfoDialog</receiver>
-   <slot>select_no_features()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>157</x>
-     <y>362</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>272</x>
-     <y>213</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>choosePath</sender>
    <signal>clicked()</signal>
    <receiver>ExportObjectInfoDialog</receiver>
@@ -276,6 +246,22 @@
     <hint type="sourcelabel">
      <x>65</x>
      <y>62</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>272</x>
+     <y>213</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>selectNoFeatures</sender>
+   <signal>clicked()</signal>
+   <receiver>ExportObjectInfoDialog</receiver>
+   <slot>select_no_features()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>157</x>
+     <y>362</y>
     </hint>
     <hint type="destinationlabel">
      <x>272</x>

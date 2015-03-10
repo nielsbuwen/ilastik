@@ -130,7 +130,9 @@ class ExportObjectInfoDialog(QDialog):
         self.ui.exportPath.setText("{}/exported_data.{}".format(expanduser("~"), file_types[0].allowed_extensions()[0]))
 
     def _change_settings(self, class_):
-        self.ui.toolBox.widget(2).deleteLater()
+        if self.settings_widget is not None:
+            self.settings_widget.deleteLater()
+
         self.settings_widget = class_(raw_size=self.raw_size)
         self.ui.toolBox.addItem(self.settings_widget, "Settings ({})".format(class_.display_name()))
 
