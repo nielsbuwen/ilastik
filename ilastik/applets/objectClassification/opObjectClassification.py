@@ -746,7 +746,7 @@ class OpObjectClassification(Operator, ExportingOperator,MultiLaneOperatorABC):
                 export_file.add_image(Default.RawPath, self.RawImages[0])
             else:
                 export_file.add_rois(Default.RawRoiPath, self.RawImages[0], "table", settings["margin"])
-        export_file.write_all(settings["file type"], settings["compression"])
+        export_file.write_all(settings)
 
         export_file.ExportProgress.unsubscribe(progress_slot)
         export_file.InsertionProgress.unsubscribe(progress_slot)

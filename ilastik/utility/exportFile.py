@@ -1,8 +1,10 @@
 import numpy as np
 import numpy.lib.recfunctions as nlr
 import h5py
+
 from vigra import AxisTags
 from lazyflow.utility import OrderedSignal
+
 from sys import stdout
 from zipfile import ZipFile
 import logging
@@ -337,17 +339,19 @@ class ExportFile(object):
         self.meta_dict.setdefault(table, {})
         self.meta_dict[table].update(meta)
 
-    def write_all(self, mode, compression=None):
+    def write_all(self, settings):
         """
         Writes all tables to the file
-        :param mode: "h[d[f]]5" or "csv" at the moment
-        :type mode: str
-        :param compression: the compression settings
-        :type compression: dict
+        :param settings: the settings for the final export
+        :type settings: dict
         """
         count = 0
         self.ExportProgress(0)
+
+        mode = settings["file type"]
+
         if mode in ("h5", "hd5", "hdf5"):
+            compression = settings["compression"]
             with h5py.File(self.file_name, "w") as fout:
                 for table_name, table in self.table_dict.iteritems():
                     self._make_h5_dataset(fout, table_name, table, self.meta_dict.get(table_name, {}),
@@ -355,6 +359,8 @@ class ExportFile(object):
                     count += 1
                     self.ExportProgress(count * 100 / len(self.table_dict))
         elif mode == "csv":
+            zipping = settings["zip"]
+
             f_name = self.file_name.rsplit(".", 1)
             if len(f_name) == 1:
                 base, ext = f_name, ""
@@ -367,6 +373,10 @@ class ExportFile(object):
                     self._make_csv_table(fout, table)
                     count += 1
                     self.ExportProgress(count * 100 / len(self.table_dict))
+            if zipping:
+                with ZipFile("{name}.zip".format(name=base), "a") as zout:
+                    for file_name in file_names:
+                        zout.write(file_name)
             if False:
                 with ZipFile("{name}.zip".format(name=base), "w") as zip_file:
                     for file_name in file_names:
