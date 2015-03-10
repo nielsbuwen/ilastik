@@ -13,15 +13,8 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-   <item>
-    <widget class="QCheckBox" name="zip_tables">
-     <property name="text">
-      <string>Zip tables</string>
-     </property>
-    </widget>
-   </item>
-   <item>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="3" column="0">
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -33,6 +26,39 @@
       </size>
      </property>
     </spacer>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Delimeter:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QComboBox" name="delimeter">
+     <item>
+      <property name="text">
+       <string>Comma &quot;,&quot;</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Semicolon &quot;;&quot;</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Tab &quot;\t&quot;</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="QCheckBox" name="zip_tables">
+     <property name="text">
+      <string>Zip tables</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>

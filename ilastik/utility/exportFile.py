@@ -8,6 +8,8 @@ from lazyflow.utility import OrderedSignal
 from sys import stdout
 from zipfile import ZipFile
 import logging
+from os.path import split as splitpath, splitext, join as joinpath
+from os import mkdir
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +220,18 @@ def create_slicing(axistags, dimensions, margin, feature_table):
         oid += 1
 
 
+def dir_name_ext(path):
+    dir_, name = splitpath(path)
+    name, ext = splitext(name)
+    return dir_, name, ext
+
+
+def join_dir_name_ext(dir_, name, ext):
+    if ext != "":
+        name = "{}{}".format(name, ext)
+    return joinpath(dir_, name)
+
+
 def actual_axistags(axistags, shape):
     return AxisTags([axistags[j] for j, s in enumerate(shape) if s > 1])
 
@@ -360,27 +374,32 @@ class ExportFile(object):
                     self.ExportProgress(count * 100 / len(self.table_dict))
         elif mode == "csv":
             zipping = settings["zip"]
+            delimiter = settings["delimiter"]
 
-            f_name = self.file_name.rsplit(".", 1)
-            if len(f_name) == 1:
-                base, ext = f_name, ""
-            else:
-                base, ext = f_name
-            file_names = []
+            dir_, name, ext = dir_name_ext(self.file_name)
+            back_dir = None
+            if zipping:
+                back_dir = dir_
+                dir_ = "/tmp/ilastik/export"
+                try:
+                    mkdir(dir_)
+                except OSError as e:
+                    if e.errno != 17:  # already exists
+                        raise
+
+            files = []
             for table_name, table in self.table_dict.iteritems():
-                file_names.append("{name}_{table}.{ext}".format(name=base, table=table_name, ext=ext))
-                with open(file_names[-1], "w") as fout:
-                    self._make_csv_table(fout, table)
+                file_name = join_dir_name_ext(dir_, "{}_{}".format(name, table_name), ext)
+                files.append((file_name, table_name))
+                with open(file_name, "w") as fout:
+                    self._make_csv_table(fout, table, delimiter)
                     count += 1
                     self.ExportProgress(count * 100 / len(self.table_dict))
             if zipping:
-                with ZipFile("{name}.zip".format(name=base), "a") as zout:
-                    for file_name in file_names:
-                        zout.write(file_name)
-            if False:
-                with ZipFile("{name}.zip".format(name=base), "w") as zip_file:
-                    for file_name in file_names:
-                        zip_file.write(file_name)
+                zip_name = join_dir_name_ext(back_dir, name, ".zip")
+                with ZipFile(zip_name, "w") as zout:
+                    for file_name, table_name in files:
+                        zout.write(file_name, arcname="{}{}".format(table_name, ext))
         self.ExportProgress(100)
         logger.info("exported %i tables" % count)
 
@@ -401,12 +420,12 @@ class ExportFile(object):
             dset.attrs[k] = v
 
     @staticmethod
-    def _make_csv_table(fout, table):
-        line = ",".join(table.dtype.names)
+    def _make_csv_table(fout, table, delimiter):
+        line = delimiter.join(table.dtype.names)
         fout.write(line)
         fout.write("\n")
         for row in table:
-            line = ",".join(map(str, row))
+            line = delimiter.join(map(str, row))
             fout.write(line)
             fout.write("\n")
 

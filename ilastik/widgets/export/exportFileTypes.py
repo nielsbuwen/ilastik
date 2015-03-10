@@ -139,6 +139,7 @@ class HDFType(ExportFileTypeWidget):
 
 class CSVType(ExportFileTypeWidget):
     _ui_file = "csvSettings"
+    delimiters = [",", ";", "\t"]
 
     def __init__(self, *args, **kwargs):
         super(CSVType, self).__init__(*args, **kwargs)
@@ -157,17 +158,25 @@ class CSVType(ExportFileTypeWidget):
 
     def export_settings(self):
         return {
-            "zip tables": self.ui.zip_tables.checkState() == Qt.Checked
+            "zip": self.ui.zip_tables.checkState() == Qt.Checked,
+            "delimiter": self.delimiters[self.ui.delimeter.currentIndex()]
         }
 
 
 if __name__ == '__main__':
     from PyQt4.QtGui import QApplication
     from sys import argv, exit as exit_
+    from pprint import PrettyPrinter as Pp
+
+    pp = Pp(indent=4).pprint
 
     app = QApplication(argv)
 
-    hdf = HDFType()
+    hdf = CSVType()
     hdf.show()
 
-    exit_(app.exec_())
+    code = app.exec_()
+
+    pp(hdf.export_settings())
+
+    exit_(code)
