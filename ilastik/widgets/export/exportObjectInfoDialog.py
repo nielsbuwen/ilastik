@@ -2,14 +2,14 @@ from PyQt4 import uic
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-import os.path
+from os.path import expanduser, split as split_path
 import re
 from operator import mul
 
-FILE_TYPES = ["h5", "csv"]
+from ilastik.widgets.export.exportFileTypes import CSVType, HDFType
+
+FILE_TYPES = [HDFType, CSVType]
 REQ_MSG = " (REQUIRED)"
-RAW_LAYER_SIZE_LIMIT = 1000000
-ALLOWED_EXTENSIONS = ["hdf5", "hd5", "h5", "csv"]
 DEFAULT_REQUIRED_FEATURES = ["Count", "Coord<Minimum>", "Coord<Maximum>", "RegionCenter", ]
 DIALOG_FILTERS = {
     "h5": "HDF 5 (*.h5 *.hd5 *.hdf5)",
@@ -34,7 +34,7 @@ class ExportObjectInfoDialog(QDialog):
     def __init__(self, dimensions, feature_table, req_features=None, title=None, parent=None):
         super(ExportObjectInfoDialog, self).__init__(parent)
 
-        ui_class, widget_class = uic.loadUiType(os.path.split(__file__)[0] + "/exportObjectInfoDialog.ui")
+        ui_class, widget_class = uic.loadUiType(split_path(__file__)[0] + "/exportObjectInfoDialog.ui")
         self.ui = ui_class()
         self.ui.setupUi(self)
 
@@ -42,18 +42,16 @@ class ExportObjectInfoDialog(QDialog):
 
         self.raw_size = reduce(mul, dimensions, 1)
 
+        self.settings_widget = None
+
         if req_features is None:
             req_features = []
         req_features.extend(DEFAULT_REQUIRED_FEATURES)
 
         self._setup_features(feature_table, req_features)
-        self.ui.featureView.setHeaderLabels(("Select Features",))
-        self.ui.featureView.expandAll()
+        self._setup_formats(FILE_TYPES)
 
-        self.ui.exportPath.setText(os.path.expanduser("~") + "/exported_data.h5")
         self.ui.exportPath.dropEvent = self._drop_event
-        # self.ui.forceUniqueIds.setEnabled(dimensions[0] > 1)
-        self.ui.compressFrame.setVisible(False)
 
     def checked_features(self):
         """
@@ -80,20 +78,11 @@ class ExportObjectInfoDialog(QDialog):
         :returns: all settings that can be changed inside the dialog
         :rtype: dict
         """
-        s = {
-            "file type": unicode(FILE_TYPES[self.ui.fileFormat.currentIndex()]),
-            "file path": unicode(self.ui.exportPath.text()),
-            "compression": {}
-        }
-
-        if s["file type"] == "h5":
-            s.update({
-                "normalize": True,  # self.ui.normalizeLabeling.checkState() == Qt.Checked,
-                "margin": self.ui.addMargin.value(),
-                "compression": self._compression_settings(),
-                "include raw": self.ui.includeRaw.checkState(),
-            })
-        return s
+        return dict({
+                    "file type": unicode(FILE_TYPES[self.ui.fileFormat.currentIndex()].default_extension()),
+                    "file path": unicode(self.ui.exportPath.text()),
+                    },
+                    **self.settings_widget.export_settings())
 
     def _drop_event(self, event):
         data = event.mimeData()
@@ -129,6 +118,22 @@ class ExportObjectInfoDialog(QDialog):
                     item.setText(0, "%s%s" % (item.text(0), REQ_MSG))
                 item.setCheckState(0, state)
 
+        self.ui.featureView.setHeaderLabels(("Select Features",))
+        self.ui.featureView.expandAll()
+
+    def _setup_formats(self, file_types):
+        if not file_types:
+            raise RuntimeError("Exporter needs at least one file type widget")
+
+        for class_ in file_types:
+            self.ui.fileFormat.addItem(class_.display_name())
+        self.ui.exportPath.setText("{}/exported_data.{}".format(expanduser("~"), file_types[0].allowed_extensions()[0]))
+
+    def _change_settings(self, class_):
+        self.ui.toolBox.widget(2).deleteLater()
+        self.settings_widget = class_(raw_size=self.raw_size)
+        self.ui.toolBox.addItem(self.settings_widget, "Settings ({})".format(class_.display_name()))
+
     # slot is called from button.click
     def select_all_features(self):
         flags = QTreeWidgetItemIterator.Enabled | \
@@ -159,16 +164,17 @@ class ExportObjectInfoDialog(QDialog):
             self.ui.toolBox.setCurrentIndex(0)
             return
         else:
+            allowed_extensions = FILE_TYPES[self.ui.fileFormat.currentIndex()].allowed_extensions()
             path = unicode(self.ui.exportPath.text())
             match = path.rsplit(".", 1)
-            if len(match) == 1 or match[1] not in ALLOWED_EXTENSIONS:
+            if len(match) == 1 or match[1] not in allowed_extensions:
                 title = "Warning"
                 text = "No file extension or invalid file extension ( %s )\nAllowed: %s"
                 if len(match) == 1:
                     ext = "<none>"
                 else:
                     ext = match[1]
-                text %= (ext, ", ".join(ALLOWED_EXTENSIONS))
+                text %= (ext, ", ".join(allowed_extensions))
                 # noinspection PyArgumentList
                 QMessageBox.information(self.parent(), title, text)
                 return
@@ -177,16 +183,17 @@ class ExportObjectInfoDialog(QDialog):
 
     # slot is called from button.click
     def choose_path(self):
-        filters = ";;".join(DIALOG_FILTERS.values())
-        current_extension = FILE_TYPES[self.ui.fileFormat.currentIndex()]
-        current_filter = DIALOG_FILTERS[current_extension]
-        path = QFileDialog.getSaveFileName(self.parent(), "Save File", self.ui.exportPath.text(), filters,
+        file_filter = ";;".join([class_.filter_string() for class_ in FILE_TYPES] + ["Any (*)"])
+        current_type = FILE_TYPES[self.ui.fileFormat.currentIndex()]
+        current_filter = current_type.filter_string()
+
+        path = QFileDialog.getSaveFileName(self.parent(), "Save File", self.ui.exportPath.text(), file_filter,
                                            current_filter)
         path = unicode(path)
         if path != "":
             match = path.rsplit(".", 1)
             if len(match) == 1:
-                path = "%s.%s" % (path, current_extension)
+                path = "{}.{}".format(path, current_type.default_extension())
             self.ui.exportPath.setText(path)
 
     # slot is called from checkBox.change
@@ -209,19 +216,25 @@ class ExportObjectInfoDialog(QDialog):
 
     # slot is called from combobox.indexchanged
     def file_format_changed(self, index):
+        class_ = FILE_TYPES[index]
         path = unicode(self.ui.exportPath.text())
         match = path.rsplit(".", 1)
-        path = "%s.%s" % (match[0], FILE_TYPES[index])
+        path = "{}.{}".format(match[0], class_.default_extension())
         self.ui.exportPath.setText(path)
+        self._change_settings(class_)
 
-        for widget in (self.ui.includeRaw, self.ui.marginLabel, self.ui.addMargin):
-            widget.setEnabled(FILE_TYPES[index] != "csv")
 
-    def _compression_settings(self):
-        settings = {}
-        if self.ui.enableCompression.checkState() == Qt.Checked:
-            settings["compression"] = str(self.ui.compressionType.currentText())
-            settings["shuffle"] = str(self.ui.enableShuffling.checkState() == Qt.Checked)
-            if settings["compression"] == "gzip":
-                settings["compression_opts"] = self.ui.gzipRate.value()
-        return settings
+if __name__ == '__main__':
+    from sys import argv, exit as exit_
+    from pprint import PrettyPrinter
+    pp = PrettyPrinter(indent=4).pprint
+
+    app = QApplication(argv)
+
+    dialog = ExportObjectInfoDialog([1000, 1000, 1000], {}, None, "Test Title")
+    dialog.show()
+
+    code = app.exec_()
+
+    pp(dialog.settings())
+    exit_(code)

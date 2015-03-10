@@ -2,7 +2,10 @@ import logging
 from ilastik.utility.exportFile import ProgressPrinter
 from ilastik.utility import log_exception
 from lazyflow.request import Request
+from ilastik.widgets.export.exportObjectInfoDialog import ExportObjectInfoDialog
 from functools import partial
+from ilastik.widgets.progressDialog import ProgressDialog
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ class ExportingOperator(object):
             progress_display = gui["dialog"]
             self.save_export_progress_dialog(progress_display)
 
-        export = partial(self.do_export, settings, selected_features, progress_display)();return
+        export = partial(self.do_export, settings, selected_features, progress_display)  # ();return
         request = Request(export)
         if "fail" in gui:
             request.notify_failed(gui["fail"])
@@ -107,10 +110,6 @@ class ExportingGui(object):
         """
         Shows the ExportObjectInfoDialog and calls the operators export_object_data method
         """
-        # Late imports here, so we don't accidentally import PyQt during headless mode.
-        from ilastik.widgets.exportObjectInfoDialog import ExportObjectInfoDialog
-        from ilastik.widgets.progressDialog import ProgressDialog
-        
         dimensions = self.get_raw_shape()
         feature_names = self.get_feature_names()
 
@@ -121,7 +120,6 @@ class ExportingGui(object):
         settings = dialog.settings()
         selected_features = dialog.checked_features()
 
-        from ilastik.widgets.progressDialog import ProgressDialog
         progress = ProgressDialog(["Feature Data", "Labeling Rois", "Raw Image", "Exporting"])
         progress.set_busy(True)
         progress.show()
