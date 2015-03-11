@@ -82,7 +82,7 @@ class ExportFileTypeWidget(QWidget, object):
         "some_name ( *.ext1 *.ext2 *.extn )"
         :return:
         """
-        return "{} ({})".format(self.short_name, ("*.{}".format(ext) for ext in self.allowed_extensions))
+        return "{} ( {} )".format(self.short_name, " ".join(("*.{}".format(ext) for ext in self.allowed_extensions)))
 
     def export_settings(self):
         """
