@@ -79,7 +79,7 @@ class ExportObjectInfoDialog(QDialog):
         :rtype: dict
         """
         return dict({
-                    "file type": unicode(FILE_TYPES[self.ui.fileFormat.currentIndex()].default_extension()),
+                    "file type": unicode(FILE_TYPES[self.ui.fileFormat.currentIndex()].default_extension),
                     "file path": unicode(self.ui.exportPath.text()),
                     },
                     **self.settings_widget.export_settings())
@@ -125,16 +125,16 @@ class ExportObjectInfoDialog(QDialog):
         if not file_types:
             raise RuntimeError("Exporter needs at least one file type widget")
 
-        for class_ in file_types:
-            self.ui.fileFormat.addItem(class_.display_name())
-        self.ui.exportPath.setText("{}/exported_data.{}".format(expanduser("~"), file_types[0].allowed_extensions()[0]))
+        for type_ in file_types:
+            self.ui.fileFormat.addItem(type_.display_name)
+        self.ui.exportPath.setText("{}/exported_data.{}".format(expanduser("~"), file_types[0].default_extension))
 
-    def _change_settings(self, class_):
+    def _change_settings(self, type_):
         if self.settings_widget is not None:
             self.settings_widget.deleteLater()
 
-        self.settings_widget = class_(raw_size=self.raw_size)
-        self.ui.toolBox.addItem(self.settings_widget, "Settings ({})".format(class_.display_name()))
+        self.settings_widget = type_(raw_size=self.raw_size)
+        self.ui.toolBox.addItem(self.settings_widget, "Settings ({})".format(type_.display_name))
 
     # slot is called from button.click
     def select_all_features(self):
@@ -166,7 +166,7 @@ class ExportObjectInfoDialog(QDialog):
             self.ui.toolBox.setCurrentIndex(0)
             return
         else:
-            allowed_extensions = FILE_TYPES[self.ui.fileFormat.currentIndex()].allowed_extensions()
+            allowed_extensions = FILE_TYPES[self.ui.fileFormat.currentIndex()].allowed_extensions
             path = unicode(self.ui.exportPath.text())
             match = path.rsplit(".", 1)
             if len(match) == 1 or match[1] not in allowed_extensions:
@@ -185,9 +185,9 @@ class ExportObjectInfoDialog(QDialog):
 
     # slot is called from button.click
     def choose_path(self):
-        file_filter = ";;".join([class_.filter_string() for class_ in FILE_TYPES] + ["Any (*)"])
+        file_filter = ";;".join([type_.filter_string for type_ in FILE_TYPES] + ["Any (*)"])
         current_type = FILE_TYPES[self.ui.fileFormat.currentIndex()]
-        current_filter = current_type.filter_string()
+        current_filter = current_type.filter_string
 
         path = QFileDialog.getSaveFileName(self.parent(), "Save File", self.ui.exportPath.text(), file_filter,
                                            current_filter)
@@ -195,7 +195,7 @@ class ExportObjectInfoDialog(QDialog):
         if path != "":
             match = path.rsplit(".", 1)
             if len(match) == 1:
-                path = "{}.{}".format(path, current_type.default_extension())
+                path = "{}.{}".format(path, current_type.default_extension)
             self.ui.exportPath.setText(path)
 
     # slot is called from checkBox.change
@@ -218,12 +218,12 @@ class ExportObjectInfoDialog(QDialog):
 
     # slot is called from combobox.indexchanged
     def file_format_changed(self, index):
-        class_ = FILE_TYPES[index]
+        type_ = FILE_TYPES[index]
         path = unicode(self.ui.exportPath.text())
         match = path.rsplit(".", 1)
-        path = "{}.{}".format(match[0], class_.default_extension())
+        path = "{}.{}".format(match[0], type_.default_extension)
         self.ui.exportPath.setText(path)
-        self._change_settings(class_)
+        self._change_settings(type_)
 
 
 if __name__ == '__main__':
@@ -233,10 +233,20 @@ if __name__ == '__main__':
 
     app = QApplication(argv)
 
-    dialog = ExportObjectInfoDialog([1000, 1000, 1000], {}, None, "Test Title")
+    feat_table = {
+        "Standard Features": {
+            "Count": {},
+            "Not Count": {},
+            "Foo": {},
+            "Bar": {},
+        }
+    }
+
+    dialog = ExportObjectInfoDialog([1000, 1000, 1000], feat_table, None, "Test Title")
     dialog.show()
 
     code = app.exec_()
 
     pp(dialog.settings())
+    pp(list(dialog.checked_features()))
     exit_(code)

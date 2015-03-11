@@ -2,6 +2,23 @@ from functools import wraps, partial
 from operator import attrgetter
 
 
+class ClassProperty(property):
+    """
+    Combination of @classmethod and @property
+    """
+    def __get__(self, cls, owner=None):
+        return classmethod(self.fget).__get__(None, owner)()
+
+    def __set__(self, cls, value):
+        raise RuntimeError("Can't set class property")
+
+    def __delete__(self, cls):
+        raise RuntimeError("Can't delete class property")
+
+
+classproperty = ClassProperty
+
+
 def lazy(function):
     """
     Decorates a function/method
