@@ -232,6 +232,8 @@ class OpManualTracking(Operator, ExportingOperator):
         export_file.add_columns("table", self.ObjectFeatures, Mode.IlastikFeatureTable,
                                 {"selection": selected_features})
 
+        export_file.drop_invalid("table", max_invalid=2)
+
         if divisions:
             ott = partial(self.lookup_oid_for_tid, oid2tid)
             divs = [(value[1], ott(key, value[1]), key, ott(value[0][0], value[1] + 1), value[0][0],

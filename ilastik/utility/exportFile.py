@@ -25,8 +25,8 @@ class Default(object):
 
 
 def flatten_tracking_table(table, extra_table, obj_counts, max_tracks, t_range):
-    #array = np.zeros(sum(obj_counts), ",".join(["i"] * max_tracks))
-    #array.dtype.names = ["track%i" % i for i in xrange(1, max_tracks + 1)]
+    # array = np.zeros(sum(obj_counts), ",".join(["i"] * max_tracks))
+    # array.dtype.names = ["track%i" % i for i in xrange(1, max_tracks + 1)]
     array = np.zeros(sum(obj_counts), [(Default.TrackColumnName.format(i), "i") for i in xrange(1, max_tracks + 1)])
     row = 0
     for i, count in enumerate(obj_counts):
@@ -50,7 +50,7 @@ def flatten_tracking_table(table, extra_table, obj_counts, max_tracks, t_range):
 
 def flatten_ilastik_feature_table(table, selection, signal):
     selection = list(selection)
-    #frames = table.meta.shape[table.meta.axistags.index("t")]
+    # frames = table.meta.shape[table.meta.axistags.index("t")]
     frames = table.meta.shape[0]
 
     signal(0)
@@ -126,7 +126,7 @@ def objects_per_frame(labeling_image):
 
     for t in xrange(frames):
         yield data[t].max()
-        #yield len(np.unique(data[t]))
+        # yield len(np.unique(data[t]))
 
 
 def division_flatten_dict(divisions, dict_):
@@ -252,12 +252,12 @@ class ExportFile(object):
         if extra is None:
             extra = {}
         if mode == Mode.IlastikTrackingTable:
-            if not "counts" in extra or not "max" in extra:
+            if "counts" not in extra or "max" not in extra:
                 raise AttributeError("Tracking need 'counts', 'max' extra")
             columns = flatten_tracking_table(col_data, extra["extra ids"], extra["counts"], extra["max"],
                                              extra["range"])
         elif mode == Mode.List:
-            if not "names" in extra:
+            if "names" not in extra:
                 raise AttributeError("[Tuple]List needs a tuple for the column name (extra 'names')")
             dtypes = extra["dtypes"] if "dtypes" in extra else None
             columns = prepare_list(col_data, extra["names"], dtypes)
@@ -270,6 +270,40 @@ class ExportFile(object):
         else:
             raise AttributeError("Invalid Mode")
         self._add_columns(table_name, columns)
+
+    def drop_invalid(self, table, nan=True, inf=False, absolute=True, max_invalid=1):
+        """
+        Drops all rows of table with name 'table' if there are invalid entries in it ( nan or inf )
+        :param table: the name if the table
+        :type table: str
+        :param nan: if True drop rows that have 'nan' entries
+        :type nan: bool
+        :param inf: if True drop rows that have 'inf' entries
+        :type inf: bool
+        :param absolute: if True any row that has more or equal to 'max_invalid' invalid entries will be dropped
+                         else any row where 'actual_invalid / row_length' is greater or equal to 'max_invalid'
+        :type absolute: bool
+        :param max_invalid: rows with less than 'max_invalid' entries won't be dropped
+        :type max_invalid: int, float
+        """
+        assert nan + inf != 0, "'nan' and 'inf' can't be both 'False'"
+        assert absolute or max_invalid <= 1.0, "'max_invalid' cannot be greater than 1.0 in relative mode"
+
+        @np.vectorize
+        def has_invalid(row):
+            total = 0
+            invalids = 0.0
+            for entry in row:
+                if (nan and np.isnan(entry)) or (inf and np.isinf(entry)):
+                    invalids += 1
+                total += 1
+            if absolute:
+                return invalids >= max_invalid
+            return invalids / total >= max_invalid
+
+        mask = ~has_invalid(self.table_dict[table])
+        print "MASK", mask
+        self.table_dict[table] = self.table_dict[table][mask]
 
     def add_rois(self, table_path, image_slot, feature_table_name, margin, type_="image"):
         """
@@ -428,17 +462,14 @@ class ProgressPrinter(object):
 
 
 if __name__ == "__main__":
-    l = [
-        1, 2, 3, 4
-    ]
-    l2 = [
-        (1, 2),
-        (3, 4),
-        (5, 6),
-        (7, 8),
-    ]
+    ef = ExportFile(None)
 
-    l = prepare_list(l, ("a",))
-    l2 = prepare_list(l2, ("a", "b"))
-    print l
-    print l2
+    tdata = np.zeros((10,), [("one", "i"), ("two", "f"), ("three", "i"), ("four", "f"), ("five", "f")])
+    tdata["one"] = range(10)
+    tdata[0][1] = np.nan
+    tdata[1][3] = tdata[1][4] = np.nan
+    print tdata
+    ef.add_columns("table", tdata, mode=Mode.NumpyStructArray)
+    ef.drop_invalid("table", max_invalid=0.3, absolute=False)
+
+    print ef.table_dict["table"]
