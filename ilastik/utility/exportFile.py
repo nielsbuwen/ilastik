@@ -49,6 +49,7 @@ def flatten_tracking_table(table, extra_table, obj_counts, max_tracks, t_range):
 
 
 def flatten_ilastik_feature_table(table, selection, signal):
+    selection = list(selection)
     #frames = table.meta.shape[table.meta.axistags.index("t")]
     frames = table.meta.shape[0]
 
