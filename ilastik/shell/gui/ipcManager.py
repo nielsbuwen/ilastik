@@ -1,7 +1,6 @@
 from SocketServer import BaseRequestHandler, TCPServer as BaseTCPServer
 import logging
 import threading
-import atexit
 import json
 from itertools import chain
 from collections import OrderedDict
@@ -101,6 +100,16 @@ class IPCFacade(object):
         if protocol not in self.protocol_map:
             raise RuntimeError("No such protocol {}".format(protocol))
         self.protocol_map[protocol].add_peer(name, address)
+
+    def clear_peers(self, protocol):
+        """
+        Redirects the clear peers command to the registered module
+        Currently only TCPClient handles clear_peer commands from TCPServer
+        :param protocol: the protocol to identify the handler ( e.g. tcp )
+        """
+        if protocol not in self.protocol_map:
+            raise RuntimeError("No such protocol {}".format(protocol))
+        self.protocol_map[protocol].clear_peers()
 
     @property
     def sending(self):
@@ -218,6 +227,13 @@ class HasPeers(IPCModul):
         Call this to add a peer to the list
         :param name: its name ( e.g. KNIME )
         :param address: its address ( depends on the protocol )
+        """
+        raise NotImplementedError
+
+    def clear_peers(self):
+        """
+        Call this to disconnect all peers
+        :return:
         """
         raise NotImplementedError
 
@@ -432,6 +448,7 @@ class TCPServer(Binding, Receiving, QObject):
         self.info.notify_server_status_update("running", False)
         logger.info("IPC Server stopped")
         self.server = None
+        self.signal.emit("clear peers", {"protocol": "tcp"})
 
     def address_prompt(self, message="", level="Warning"):
         message = "{}. Change port".format(message)
@@ -468,6 +485,10 @@ class TCPClient(Sending, HasPeers):
             self.peers[key]["address"][1] = port
         else:
             return
+        self.info.update_connections(self.peers)
+
+    def clear_peers(self):
+        self.peers = OrderedDict()
         self.info.update_connections(self.peers)
 
     def update_peer(self, key, **kvargs):
@@ -546,7 +567,7 @@ class ZMQPublisher(ZMQBase, Sending):
         self.socket = None
         self.info = None
 
-        #atexit.register(self.stop)
+        # atexit.register(self.stop)
 
     def connect_widget(self, widget):
         self.info = widget

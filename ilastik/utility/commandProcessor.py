@@ -27,6 +27,11 @@ def handshake(_, protocol, name, **address):
     IPCFacade().handshake(protocol, name, address)
 
 
+def clear_peers(_, protocol):
+    from ilastik.shell.gui.ipcManager import IPCFacade
+    IPCFacade().clear_peers(protocol)
+
+
 def set_position(shell, t=0, x=0, y=0, z=0, c=0, **_):
     try:
         shell.setAllViewersPosition([t, x, y, z, c])
@@ -35,6 +40,7 @@ def set_position(shell, t=0, x=0, y=0, z=0, c=0, **_):
 
 
 commands = {
+    "clear peers": clear_peers,
     "handshake": handshake,
     "setviewerposition": set_position
 }
@@ -56,7 +62,7 @@ class CommandProcessor(object):
     def execute(self, command, data):
         command = str(command)
         handler = commands.get(command)
-        if not handler:
+        if handler is None:
             raise RuntimeError("Command '{}' is not available".format(command))
         handler(self.shell, **data)
 
