@@ -20,19 +20,26 @@
 ###############################################################################
 
 
-def handshake(_, protocol, name, **address):
+def handshake(facade, _, protocol, name, **address):
+
+    if "host" in address and "port" in address:
+        address = (address["host"], address["port"])
+    facade.handshake(protocol, name, address)
+
+
+def goodbye(facade, _, protocol, name, **address):
     from ilastik.shell.gui.ipcManager import IPCFacade
     if "host" in address and "port" in address:
         address = (address["host"], address["port"])
-    IPCFacade().handshake(protocol, name, address)
+    facade.goodbye(protocol, name, address)
 
 
-def clear_peers(_, protocol):
+def clear_peers(facade, _, protocol):
     from ilastik.shell.gui.ipcManager import IPCFacade
-    IPCFacade().clear_peers(protocol)
+    facade.clear_peers(protocol)
 
 
-def set_position(shell, t=0, x=0, y=0, z=0, c=0, **_):
+def set_position(facade, shell, t=0, x=0, y=0, z=0, c=0, **_):
     try:
         shell.setAllViewersPosition([t, x, y, z, c])
     except IndexError:
@@ -42,16 +49,21 @@ def set_position(shell, t=0, x=0, y=0, z=0, c=0, **_):
 commands = {
     "clear peers": clear_peers,
     "handshake": handshake,
-    "setviewerposition": set_position
+    "setviewerposition": set_position,
+    "goodbye": goodbye,
 }
 
 
 class CommandProcessor(object):
     def __init__(self):
+
         self.shell = None
+        self.facade = None
 
     def set_shell(self, shell):
+        from ilastik.shell.gui.ipcManager import IPCFacade
         self.shell = shell
+        self.facade = IPCFacade()
 
     def connect_receiver(self, receiver):
         receiver.signal.connect(self.execute)
@@ -64,7 +76,16 @@ class CommandProcessor(object):
         handler = commands.get(command)
         if handler is None:
             raise RuntimeError("Command '{}' is not available".format(command))
-        handler(self.shell, **data)
+        success = True
+        try:
+            handler(self.facade, self.shell, **data)
+        except Exception as e:
+            print e
+            success = False
+        if command not in ("handshake", "goodbye", "clear peers"):
+            data.update({"command": command})
+            self.facade.handled_command(data["protocol"], data, success)
+
 
 
 
