@@ -702,6 +702,9 @@ class ObjectClassificationGui(LabelingGui, ExportingGui):
                 where = Protocol.simple_in("track_id*", [66, 65], wildcard_filler=[1, 2])
                 cmd = Protocol.cmd("hilite", where=where)
                 sub2.addAction("HILITE track_id*==66 OR 65", IPCFacade().broadcast(cmd))
+                where = Protocol.simple_in("track_id*", [149], wildcard_filler=[1, 2])
+                cmd = Protocol.cmd("hilite", where=where)
+                sub2.addAction("HILITE track_id*==149", IPCFacade().broadcast(cmd))
 
                 sub = menu.addMenu("Hilite Object")
                 for mode in Protocol.ValidHiliteModes[:-1]:
