@@ -7,6 +7,7 @@ import re
 import traceback
 from PyQt4.QtCore import pyqtSignal
 from ilastik.applets.tracking.base.trackingBaseGui import TrackingBaseGui
+from ilastik.utility.exportFile import Default
 from ilastik.utility.exportingOperator import ExportingGui
 from ilastik.utility.gui.threadRouter import threadRouted
 from ilastik.utility.gui.titledMenu import TitledMenu
@@ -297,7 +298,13 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
 
             obj_sub_menu = menu.addMenu("Hilite Object")
             for mode in Protocol.ValidHiliteModes:
-                where = Protocol.simple("and", ilastik_id=obj, time=time)
+                time_row = Default.IlastikId["names"][0]
+                ilastik_row = Default.IlastikId["names"][1]
+                where_dict = {
+                    time_row: time,
+                    ilastik_row: obj
+                }
+                where = Protocol.simple("and", **where_dict)
                 cmd = Protocol.cmd(mode, where)
                 obj_sub_menu.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
 
