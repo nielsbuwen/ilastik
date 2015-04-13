@@ -295,6 +295,8 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
             return
 
         if any(IPCFacade().sending):
+            parameters = self.topLevelOperatorView.Parameters
+            multi_move_max = parameters.value["maxObj"] if parameters.ready() else 2
 
             obj_sub_menu = menu.addMenu("Hilite Object")
             for mode in Protocol.ValidHiliteModes:
@@ -317,10 +319,10 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
                 if args:
                     sub = menu.addMenu("Hilite {}".format(name))
                     for mode in Protocol.ValidHiliteModes[:-1]:
-                        mode = mode.capitalize()
-                        where = protocol("track_id*", args)
+                        mode = mode
+                        where = protocol("track_id*", args, wildcard_filler=range(1, multi_move_max+1))
                         cmd = Protocol.cmd(mode, where)
-                        sub.addAction(mode, IPCFacade().broadcast(cmd))
+                        sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
                 else:
                     sub = menu.addAction("Hilite {}".format(name))
                     sub.setEnabled(False)

@@ -29,25 +29,31 @@ class Protocol(object):
         }
 
     @staticmethod
-    def simple_in(row, possibilities):
+    def simple_in(row, possibilities, wildcard_filler=None):
         """
         Builds a simple where clause ( using 'in' ) for the hilite command
 
         :param row: the row name that must be in possibilities
         :param possibilities: the possible values row can have
+        :param wildcard_filler: a list that fills wildcard expressions '*'
         :returns: the where dict
 
         e.g.
         simple("track_id1", [42, 1337, 12345])
             => WHERE ( track_id1 == 42 OR track_id1 == 1337 OR track_id1 == 12345 )
+        simple("track_id*", [42, 1337], [1, 2])
+            => WHERE ( track_id1 == 42 OR track_id2 == 42 OR track_id1 == 1337 OR track_id2 == 1337 )
         """
         operands = []
-        for p in possibilities:
-            operands.append({
-                "operator": "==",
-                "row": row,
-                "value": p,
-            })
+        if wildcard_filler is None:
+            wildcard_filler = []
+        for filler in wildcard_filler:
+            for p in possibilities:
+                operands.append({
+                    "operator": "==",
+                    "row": row.replace("*", str(filler)),
+                    "value": p,
+                })
 
         return {
             "operator": "or",
