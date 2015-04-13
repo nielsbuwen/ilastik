@@ -376,6 +376,14 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
                 else:
                     sub = menu.addAction("Hilite {}".format(name))
                     sub.setEnabled(False)
+            sub = menu.addMenu("Hilite Lineage")
+            for mode in Protocol.ValidHiliteModes[:-1]:
+                where_dict = {
+                    Default.Lineage["names"][0]: color
+                }
+                where = Protocol.simple("or", **where_dict)
+                cmd = Protocol.cmd(mode, where)
+                sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
 
             menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
         else:
