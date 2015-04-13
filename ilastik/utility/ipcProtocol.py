@@ -3,6 +3,25 @@ class Protocol(object):
     ValidHiliteModes = ["hilite", "unhilite", "toggle", "clear"]
 
     @staticmethod
+    def simple_op(op, row, value):
+        """
+        Builds a simple where clause for the hilite command
+
+        :param row: the row name
+        :param value: the value that the row needs to have
+        :returns: the where dict
+
+        e.g.
+        simple("==", lineage_id, 42)
+            => WHERE lineage_id == 42
+        """
+        return {
+            "operator": op,
+            "row": row,
+            "value": value
+        }
+
+    @staticmethod
     def simple(operator, *wheres, **attributes):
         """
         Builds a simple where clause for the hilite command
