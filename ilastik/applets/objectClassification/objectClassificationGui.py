@@ -695,6 +695,14 @@ class ObjectClassificationGui(LabelingGui, ExportingGui):
             if any(IPCFacade().sending):
                 time = position5d[0]
 
+                sub2 = menu.addMenu("Dummy Track")
+                where = Protocol.simple_in("track_id*", [66], wildcard_filler=[1, 2])
+                cmd = Protocol.cmd("hilite", where=where)
+                sub2.addAction("HILITE track_id*==66", IPCFacade().broadcast(cmd))
+                where = Protocol.simple_in("track_id*", [66, 65], wildcard_filler=[1, 2])
+                cmd = Protocol.cmd("hilite", where=where)
+                sub2.addAction("HILITE track_id*==66 OR 65", IPCFacade().broadcast(cmd))
+
                 sub = menu.addMenu("Hilite Object")
                 for mode in Protocol.ValidHiliteModes[:-1]:
                     time_row = Default.IlastikId["names"][0]
