@@ -322,7 +322,7 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
                     sub = menu.addMenu("Hilite {}".format(name))
                     for mode in Protocol.ValidHiliteModes[:-1]:
                         mode = mode.capitalize()
-                        where = protocol("track_id*", args)
+                        where = protocol("track_id*", args, wildcard_filler=[1, 2])
                         cmd = Protocol.cmd(mode, where)
                         sub.addAction(mode, IPCFacade().broadcast(cmd))
                 else:
