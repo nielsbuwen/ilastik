@@ -676,6 +676,7 @@ class ObjectClassificationGui(LabelingGui):
         self.topLevelOperatorView.assignObjectLabel(imageIndex, pos5d, label)
 
     def handleEditorRightClick(self, position5d, globalWindowCoordinate):
+        from ilastik.utility.exportFile import Default
         layer = self.getLayer('Labels')
         obj = self._getObject(layer.segmentationImageSlot, position5d)
         if obj == 0:
@@ -693,14 +694,19 @@ class ObjectClassificationGui(LabelingGui):
 
                 sub = menu.addMenu("Hilite Object")
                 for mode in Protocol.ValidHiliteModes[:-1]:
-                    where = Protocol.simple("and", time=time, ilastik_id=obj)
+                    time_row = Default.IlastikId["names"][0]
+                    ilastik_row = Default.IlastikId["names"][1]
+                    where_dict = {
+                        ilastik_row: obj,
+                        time_row: time
+                    }
+                    where = Protocol.simple("and", **where_dict)
                     cmd = Protocol.cmd(mode, where)
                     sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
                 menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
             else:
                 menu.addAction("Open IPC Server Window", IPCFacade().show_info)
                 menu.addAction("Start All IPC Servers", IPCFacade().start)
-
 
         menu.addSeparator()
         clearlabel = "Clear label for object {}".format(obj)
