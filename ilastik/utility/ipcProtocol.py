@@ -3,12 +3,12 @@ class Protocol(object):
     ValidHiliteModes = ["hilite", "unhilite", "toggle", "clear"]
 
     @staticmethod
-    def simple_op(op, row, value):
+    def simple_op(op, column, value):
         """
         Builds a simple where clause for the hilite command
 
-        :param row: the row name
-        :param value: the value that the row needs to have
+        :param column: the column name
+        :param value: the value that the column needs to have
         :returns: the where dict
 
         e.g.
@@ -17,7 +17,7 @@ class Protocol(object):
         """
         return {
             "operator": op,
-            "row": row,
+            "column": column,
             "value": value
         }
 
@@ -38,7 +38,7 @@ class Protocol(object):
         for name, value in attributes.iteritems():
             operands.append({
                 "operator": "==",
-                "row": name,
+                "column": name,
                 "value": value
             })
 
@@ -48,12 +48,12 @@ class Protocol(object):
         }
 
     @staticmethod
-    def simple_in(row, possibilities, wildcard_filler=None):
+    def simple_in(column, possibilities, wildcard_filler=None):
         """
         Builds a simple where clause ( using 'in' ) for the hilite command
 
-        :param row: the row name that must be in possibilities
-        :param possibilities: the possible values row can have
+        :param column: the column name that must be in possibilities
+        :param possibilities: the possible values column can have
         :param wildcard_filler: a list that fills wildcard expressions '*'
         :returns: the where dict
 
@@ -70,7 +70,7 @@ class Protocol(object):
             for p in possibilities:
                 operands.append({
                     "operator": "==",
-                    "row": row.replace("*", str(filler)),
+                    "column": column.replace("*", str(filler)),
                     "value": p,
                 })
 
@@ -140,6 +140,6 @@ class Protocol(object):
                 where.append(sub["operator"].upper())
             where.pop()
         else:
-            where.append(sub["row"])
+            where.append(sub["column"])
             where.append(sub["operator"].upper())
             where.append(str(sub["value"]))
