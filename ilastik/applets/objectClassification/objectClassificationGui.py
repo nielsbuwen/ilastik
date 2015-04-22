@@ -23,6 +23,8 @@ from PyQt4 import uic
 from PyQt4.QtCore import pyqtSignal, pyqtSlot, Qt, QObject, pyqtBoundSignal
 from PyQt4.QtGui import QFileDialog
 from ilastik.shell.gui.ipcManager import IPCFacade, Protocol
+from ilastik.utility.exportFile import Default
+from ilastik.utility.exportingOperator import ExportingGui
 
 from ilastik.widgets.featureTableWidget import FeatureEntry
 from ilastik.widgets.featureDlg import FeatureDlg
@@ -79,7 +81,7 @@ class FeatureSubSelectionDialog(FeatureSelectionDialog):
         self.ui.label_2.setVisible(False)
         self.ui.label_z.setVisible(False)
 
-class ObjectClassificationGui(LabelingGui):
+class ObjectClassificationGui(LabelingGui, ExportingGui):
     """A subclass of LabelingGui for labeling objects.
 
     Handles labeling objects, viewing the predicted results, and
@@ -675,8 +677,14 @@ class ObjectClassificationGui(LabelingGui):
             "Need to update onClick() if the operator no longer expects volumina axis order.  Operator wants: {}".format( operatorAxisOrder )
         self.topLevelOperatorView.assignObjectLabel(imageIndex, pos5d, label)
 
+    def create_hilite_timestep_menu(self, menu, timestep):
+        sub = menu.addMenu("Hilite Timestep")
+        where = Protocol.simple("or", **{Default.IlastikId["names"][0]: timestep})
+        for mode in Protocol.ValidHiliteModes[:-1]:
+            cmd = Protocol.cmd(mode, where)
+            sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+
     def handleEditorRightClick(self, position5d, globalWindowCoordinate):
-        from ilastik.utility.exportFile import Default
         layer = self.getLayer('Labels')
         obj = self._getObject(layer.segmentationImageSlot, position5d)
         if obj == 0:
@@ -693,17 +701,14 @@ class ObjectClassificationGui(LabelingGui):
                 time = position5d[0]
 
                 sub = menu.addMenu("Hilite Object")
+                where = Protocol.simple("and",
+                                        **{Default.IlastikId["names"][0]: time, Default.IlastikId["names"][1]: obj})
                 for mode in Protocol.ValidHiliteModes[:-1]:
-                    time_row = Default.IlastikId["names"][0]
-                    ilastik_row = Default.IlastikId["names"][1]
-                    where_dict = {
-                        ilastik_row: obj,
-                        time_row: time
-                    }
-                    where = Protocol.simple("and", **where_dict)
-                    cmd = Protocol.cmd(mode, where)
-                    sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+                        cmd = Protocol.cmd(mode, where)
+                        sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+                self.create_hilite_timestep_menu(menu, time)
                 menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+
             else:
                 menu.addAction("Open IPC Server Window", IPCFacade().show_info)
                 menu.addAction("Start All IPC Servers", IPCFacade().start)
