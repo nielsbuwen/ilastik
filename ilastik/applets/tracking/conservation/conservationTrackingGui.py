@@ -304,8 +304,7 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
         obj, time = self.get_object(position5d)
         if obj == 0:
             menu = TitledMenu(["Background"])
-            if debug:
-                menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+            self.create_background_hilite_options(menu, time)
             menu.exec_(win_coord)
             return
 
@@ -348,17 +347,7 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
             parameters = self.topLevelOperatorView.Parameters
             multi_move_max = parameters.value["maxObj"] if parameters.ready() else 2
 
-            obj_sub_menu = menu.addMenu("Hilite Object")
-            for mode in Protocol.ValidHiliteModes:
-                time_row = Default.IlastikId["names"][0]
-                ilastik_row = Default.IlastikId["names"][1]
-                where_dict = {
-                    time_row: time,
-                    ilastik_row: obj
-                }
-                where = Protocol.simple("and", **where_dict)
-                cmd = Protocol.cmd(mode, where)
-                obj_sub_menu.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+            self.create_object_hilite_options(menu, obj, time)
 
             sub_menus = [
                 ("Tracks", Protocol.simple_in, tracks),
@@ -385,7 +374,7 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
                 cmd = Protocol.cmd(mode, where)
                 sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
 
-            menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+            self.create_background_hilite_options(menu, time)
         else:
             menu.addAction("Open IPC Server Window", IPCFacade().show_info)
             menu.addAction("Start IPC Server", IPCFacade().start)

@@ -47,6 +47,9 @@ from ilastik.utility import bind
 from ilastik.utility.gui import ThreadRouter, threadRouted
 from ilastik.config import cfg as ilastik_config
 from ilastik.widgets.viewerControls import ViewerControls
+from ilastik.shell.gui.ipcManager import IPCFacade
+from ilastik.utility.exportFile import Default
+from ilastik.utility.ipcProtocol import Protocol
 
 #===----------------------------------------------------------------------------------------------------------------===
 
@@ -640,3 +643,36 @@ class LayerViewerGui(QWidget):
     def handleEditorLeftClick(self, position5d, globalWindowCoordiante):
         # Override me
         pass
+
+    @staticmethod
+    def create_background_hilite_options(menu, timestep):
+        """
+        This method adds two submenus to menu allowing to "hilite" the whole timestep or clearing all hilites.
+        This is used for the ilastik-KNIME IPC
+        :param menu: the QMenu to add submenus to
+        :param timestep: the current timestep
+        """
+
+        sub = menu.addMenu("Hilite Timestep")
+        where = Protocol.simple("or", **{Default.IlastikId["names"][0]: timestep})
+        for mode in Protocol.ValidHiliteModes[:-1]:
+            cmd = Protocol.cmd(mode, where)
+            sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+
+        menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+
+    @staticmethod
+    def create_object_hilite_options(menu, obj, timestep):
+        """
+        This method adds one submenu to menu allowing to "hilite" the given object.
+        This is use for the ilastik-KNIME IPC
+        :param menu: the QMenu to add the submenu to
+        :param obj: the object id of the object to hilite
+        :param timestep: the current timestep
+        """
+
+        sub = menu.addMenu("Hilite Object")
+        where = Protocol.simple("and", **dict(zip(Default.IlastikId, (timestep, obj))))
+        for mode in Protocol.ValidHiliteModes[:-1]:
+                cmd = Protocol.cmd(mode, where)
+                sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
