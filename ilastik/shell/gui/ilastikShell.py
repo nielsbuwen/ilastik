@@ -1578,9 +1578,9 @@ class IlastikShell(QMainWindow):
                 if hasattr(applet, "connected_to_knime"):
                     applet.connected_to_knime = True
 
-    def setAllViewersPosition(self, pos):
+    def setAllViewersPosition(self, pos, hilite=False):
         # operate on currently displayed applet first
-        self._setViewerPosition(self._applets[self.currentAppletIndex], pos)
+        self._setViewerPosition(self._applets[self.currentAppletIndex], pos, hilite=hilite)
 
         # now iterate over all other applets and change the viewer focus
         for applet in self._applets:
@@ -1588,13 +1588,20 @@ class IlastikShell(QMainWindow):
                 self._setViewerPosition(applet, pos)
 
     @threadRouted
-    def _setViewerPosition(self, applet, pos):
+    def _setViewerPosition(self, applet, pos, hilite=False):
         gui = applet.getMultiLaneGui()
         # test if gui is a Gui on its own or just created by a SingleToMultiGuiAdapter
         if isinstance(gui, SingleToMultiGuiAdapter):
             gui = gui.currentGui()
         # test if gui implements "setViewerPos()" method
         if issubclass(type(gui), VolumeViewerGui):
+            if hilite:
+                # assert isinstance(gui, ObjectClassificationGui)
+                tl, br = gui.object_bb_at(map(int, pos))
+                if tl is None:
+                    gui.hilite_position(pos[1:4])
+                else:
+                    gui.hilite_object(tl, br)
             gui.setViewerPos(pos, setTime=True, setChannel=True)
 
     def enableProjectChanges(self, enabled):

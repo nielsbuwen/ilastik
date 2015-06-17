@@ -19,6 +19,8 @@
 #           http://ilastik.org/license.html
 ###############################################################################
 from collections import namedtuple
+from sys import exc_info
+from traceback import print_tb
 
 
 command_target = namedtuple("CommandTarget", "facade shell")
@@ -45,7 +47,7 @@ def clear_peers(target, protocol):
 
 def set_position(target, t=0, x=0, y=0, z=0, c=0, **_):
     try:
-        target.shell.setAllViewersPosition([t, x, y, z, c])
+        target.shell.setAllViewersPosition([t, x, y, z, c], hilite=True)
     except IndexError:
         pass  # No project loaded
 
@@ -85,7 +87,8 @@ class CommandProcessor(object):
         try:
             handler(target, **data)
         except Exception as e:
-            print e
+            print type(e).__name__, e.message, e.args
+            print_tb(exc_info()[2])
             success = False
         if command not in ("handshake", "goodbye", "clear peers"):
             data.update({"command": command})
