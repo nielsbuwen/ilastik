@@ -18,30 +18,34 @@
 # on the ilastik web site at:
 #           http://ilastik.org/license.html
 ###############################################################################
+from collections import namedtuple
 
 
-def handshake(facade, _, protocol, name, **address):
+command_target = namedtuple("CommandTarget", "facade shell")
+
+
+def handshake(target, protocol, name, **address):
 
     if "host" in address and "port" in address:
         address = (address["host"], address["port"])
-    facade.handshake(protocol, name, address)
+    target.facade.handshake(protocol, name, address)
 
 
-def goodbye(facade, _, protocol, name, **address):
-    from ilastik.shell.gui.ipcManager import IPCFacade
+def goodbye(target, protocol, name, **address):
+    # from ilastik.shell.gui.ipcManager import IPCFacade
     if "host" in address and "port" in address:
         address = (address["host"], address["port"])
-    facade.goodbye(protocol, name, address)
+    target.facade.goodbye(protocol, name, address)
 
 
-def clear_peers(facade, _, protocol):
-    from ilastik.shell.gui.ipcManager import IPCFacade
-    facade.clear_peers(protocol)
+def clear_peers(target, protocol):
+    # from ilastik.shell.gui.ipcManager import IPCFacade
+    target.facade.clear_peers(protocol)
 
 
-def set_position(facade, shell, t=0, x=0, y=0, z=0, c=0, **_):
+def set_position(target, t=0, x=0, y=0, z=0, c=0, **_):
     try:
-        shell.setAllViewersPosition([t, x, y, z, c])
+        target.shell.setAllViewersPosition([t, x, y, z, c])
     except IndexError:
         pass  # No project loaded
 
@@ -77,16 +81,12 @@ class CommandProcessor(object):
         if handler is None:
             raise RuntimeError("Command '{}' is not available".format(command))
         success = True
+        target = command_target(self.facade, self.shell)
         try:
-            handler(self.facade, self.shell, **data)
+            handler(target, **data)
         except Exception as e:
             print e
             success = False
         if command not in ("handshake", "goodbye", "clear peers"):
             data.update({"command": command})
             self.facade.handled_command(data["protocol"], data, success)
-
-
-
-
-
