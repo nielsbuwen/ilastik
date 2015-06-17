@@ -680,6 +680,29 @@ class ObjectClassificationGui(LabelingGui, ExportingGui):
             "Need to update onClick() if the operator no longer expects volumina axis order.  Operator wants: {}".format( operatorAxisOrder )
         self.topLevelOperatorView.assignObjectLabel(imageIndex, pos5d, label)
 
+    def object_bb_at(self, position5d):
+        """
+        :param position5d: the position of the object
+        :type position5d: (int, int, int, int, int) | [int, int, int, int, int]
+        :return: the bounding box (top_left, bot_right) of the object. Always x=0, y=0, z=0
+                If no object exists at the given position None is returned
+        :rtype: (numpy.ndarray, numpy.ndarray) | (None, None)
+        """
+        layer = self.getLayer('Labels')
+        obj = self._getObject(layer.segmentationImageSlot, position5d)
+        if obj == 0:
+            return None, None
+        time = position5d[0]
+        features = self.topLevelOperatorView.viewed_operator().ObjectFeatures[0]([time]).wait()
+        min_coord = features[time][u"Default features"][u"Coord<Minimum>"][obj]
+        max_coord = features[time][u"Default features"][u"Coord<Maximum>"][obj]
+
+        while len(min_coord) < 3:
+            min_coord = numpy.append(min_coord, 0)
+            max_coord = numpy.append(max_coord, 0)
+
+        return min_coord, max_coord
+
     def handleEditorRightClick(self, position5d, globalWindowCoordinate):
         layer = self.getLayer('Labels')
         obj = self._getObject(layer.segmentationImageSlot, position5d)

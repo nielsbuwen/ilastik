@@ -19,9 +19,11 @@
 #		   http://ilastik.org/license.html
 ###############################################################################
 #Python
+from itertools import combinations
 import os
 from functools import partial
 import logging
+from PyQt4.QtCore import QRectF, QPointF, Qt
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
 
@@ -123,6 +125,9 @@ class LayerViewerGui(QWidget):
         :param centralWidgetOnly: If True, provide only a central widget without drawer or viewer controls.
         """
         super(LayerViewerGui, self).__init__()
+
+        # stores the crosses to indicate a setviewerposition
+        self._hilite_marker = []
 
         self._stopped = False
         self._initialized = False
@@ -482,6 +487,63 @@ class LayerViewerGui(QWidget):
         except Exception, e:
             logger.warn("Failed to navigate to position (%s): %s" % (pos, e))
         return
+
+    @threadRouted
+    def hilite_position(self, pos3d):
+        """
+        Hilites the position with a cross
+        :param pos3d: the position for the cross
+        :type pos3d: (int, int, int) | [int, int, int]
+        """
+        for marker in self._hilite_marker:
+            marker.scene().removeItem(marker)
+        pen = QPen(Qt.yellow)
+        pen.setWidth(2)
+        self._hilite_marker = [self._add_hilite_cross(view.scene(), x, y)
+                               for view, (y, x) in zip(self.editor.imageViews,
+                                                       combinations(reversed(pos3d), 2))]
+
+    @staticmethod
+    def _add_hilite_cross(scene, x, y, width=5):
+        group = QGraphicsItemGroup()
+        pen = QPen(Qt.yellow)
+        pen.setWidth(2)
+        for x1, y1, x2, y2 in [(x - width, y, x + width, y), (x, y - width, x, y + width)]:
+            line = QGraphicsLineItem(x1, y1, x2, y2, group)
+            line.setPen(pen)
+            group.addToGroup(line)
+        scene.addItem(group)
+        return group
+
+    @staticmethod
+    def _add_hilite_bb(scene, tlx, tly, brx, bry, width=5):
+        pen = QPen(Qt.yellow)
+        pen.setWidth(2)
+        rect = QGraphicsRectItem(QRectF(QPointF(tlx-width, tly-width),
+                                        QPointF(brx+width, bry+width)))
+        rect.setPen(pen)
+        scene.addItem(rect)
+        return rect
+
+    @threadRouted
+    def hilite_object(self, top_left, bottom_right):
+        """
+        Hilites the region with a rect
+        This is used by the ilastik-KNIME bridge
+        Every setviewerposition is hilited
+        :param top_left: the x, y and z coordinate ( pos3D ) of the top left corner
+        :type top_left: (int, int, int) | [int, int, int]
+        :param bottom_right: the x, y and z coordinate ( pos3D ) of the bottom right corner
+        :type bottom_right: (int, int, int) | [int, int, int]
+        """
+        for marker in self._hilite_marker:
+            marker.scene().removeItem(marker)
+        pen = QPen(Qt.yellow)
+        pen.setWidth(2)
+        self._hilite_marker = [self._add_hilite_bb(view.scene(), tlx, tly, brx, bry)
+                               for view, (tly, tlx), (bry, brx) in zip(self.editor.imageViews,
+                                                                       combinations(reversed(top_left), 2),
+                                                                       combinations(reversed(bottom_right), 2))]
     
     def validatePos(self, pos, dims=5):
         if not isinstance(pos, list):
