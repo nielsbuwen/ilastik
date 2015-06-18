@@ -24,6 +24,8 @@ import os
 from functools import partial
 import logging
 from PyQt4.QtCore import QRectF, QPointF, Qt
+from volumina.hilite_marker import HiliteCross, HiliteBB
+
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
 
@@ -185,6 +187,9 @@ class LayerViewerGui(QWidget):
         
         # By default, we start out disabled until we have at least one layer.
         self.centralWidget().setEnabled(False)
+        for scene in self.editor.imageScenes:
+            scene.axesChanged.connect(self.update_hilite_marker)
+        self.editor.posModel.timeChanged.connect(self.clear_hilites)
         
     def _after_init(self):
         self._initialized = True
@@ -510,41 +515,34 @@ class LayerViewerGui(QWidget):
         return
 
     @threadRouted
+    def clear_hilites(self, *_):
+        """
+        Removes all hilite markers from all scenes
+        """
+        for marker in self._hilite_marker:
+            marker.remove()
+        self._hilite_marker = []
+
+    def iter_scenes_with_coords(self, *positions):
+        zipped = [self.editor.imageScenes]
+        for position in positions:
+            zipped.append(combinations(reversed(position), 2))
+
+        for it in zip(*zipped):
+            s = it[0]
+            yield it
+
+    @threadRouted
     def hilite_position(self, pos3d):
         """
         Hilites the position with a cross
         :param pos3d: the position for the cross
         :type pos3d: (int, int, int) | [int, int, int]
         """
-        for marker in self._hilite_marker:
-            marker.scene().removeItem(marker)
-        pen = QPen(Qt.yellow)
-        pen.setWidth(2)
-        self._hilite_marker = [self._add_hilite_cross(view.scene(), x, y)
-                               for view, (y, x) in zip(self.editor.imageViews,
-                                                       combinations(reversed(pos3d), 2))]
+        self.clear_hilites()
 
-    @staticmethod
-    def _add_hilite_cross(scene, x, y, width=5):
-        group = QGraphicsItemGroup()
-        pen = QPen(Qt.yellow)
-        pen.setWidth(2)
-        for x1, y1, x2, y2 in [(x - width, y, x + width, y), (x, y - width, x, y + width)]:
-            line = QGraphicsLineItem(x1, y1, x2, y2, group)
-            line.setPen(pen)
-            group.addToGroup(line)
-        scene.addItem(group)
-        return group
-
-    @staticmethod
-    def _add_hilite_bb(scene, tlx, tly, brx, bry, width=5):
-        pen = QPen(Qt.yellow)
-        pen.setWidth(2)
-        rect = QGraphicsRectItem(QRectF(QPointF(tlx-width, tly-width),
-                                        QPointF(brx+width, bry+width)))
-        rect.setPen(pen)
-        scene.addItem(rect)
-        return rect
+        self._hilite_marker = [HiliteCross((x, y), 5, scene)
+                               for scene, (y, x) in self.iter_scenes_with_coords(pos3d)]
 
     @threadRouted
     def hilite_object(self, top_left, bottom_right):
@@ -557,15 +555,15 @@ class LayerViewerGui(QWidget):
         :param bottom_right: the x, y and z coordinate ( pos3D ) of the bottom right corner
         :type bottom_right: (int, int, int) | [int, int, int]
         """
+        self.clear_hilites()
+
+        self._hilite_marker = [HiliteBB((x1, y1, x2, y2), 5, scene)
+                               for scene, (y1, x1), (y2, x2) in self.iter_scenes_with_coords(top_left, bottom_right)]
+
+    def update_hilite_marker(self, *_):
         for marker in self._hilite_marker:
-            marker.scene().removeItem(marker)
-        pen = QPen(Qt.yellow)
-        pen.setWidth(2)
-        self._hilite_marker = [self._add_hilite_bb(view.scene(), tlx, tly, brx, bry)
-                               for view, (tly, tlx), (bry, brx) in zip(self.editor.imageViews,
-                                                                       combinations(reversed(top_left), 2),
-                                                                       combinations(reversed(bottom_right), 2))]
-    
+            marker.update()
+
     def validatePos(self, pos, dims=5):
         if not isinstance(pos, list):
             raise Exception("Wrong data format")
