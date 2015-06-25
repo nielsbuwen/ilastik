@@ -697,7 +697,7 @@ class LayerViewerGui(QWidget):
         """
 
         sub = menu.addMenu("Hilite Object")
-        where = Protocol.simple("and", **dict(zip(Default.IlastikId, (timestep, obj))))
+        where = Protocol.simple("and", **dict(zip(Default.IlastikId["names"], (timestep, obj))))
         for mode in Protocol.ValidHiliteModes[:-1]:
                 cmd = Protocol.cmd(mode, where)
                 sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
