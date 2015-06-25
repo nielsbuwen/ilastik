@@ -24,7 +24,7 @@ import os
 from functools import partial
 import logging
 from PyQt4.QtCore import QRectF, QPointF, Qt
-from volumina.hilite_marker import HiliteCross, HiliteBB
+from volumina.hilite_marker import HiliteCross, HiliteBB, HiliteList
 
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
@@ -129,7 +129,6 @@ class LayerViewerGui(QWidget):
         super(LayerViewerGui, self).__init__()
 
         # stores the crosses to indicate a setviewerposition
-        self._hilite_marker = []
 
         self._stopped = False
         self._initialized = False
@@ -187,9 +186,14 @@ class LayerViewerGui(QWidget):
         
         # By default, we start out disabled until we have at least one layer.
         self.centralWidget().setEnabled(False)
+
+        self.hilite = HiliteList(self.editor.imageScenes)
+
         for scene in self.editor.imageScenes:
-            scene.axesChanged.connect(self.update_hilite_marker)
-        self.editor.posModel.timeChanged.connect(self.clear_hilites)
+            scene.axesChanged.connect(self.hilite.update)
+        self.editor.posModel.timeChanged.connect(self.hilite.change_timestep)
+
+        
         
     def _after_init(self):
         self._initialized = True
@@ -498,11 +502,11 @@ class LayerViewerGui(QWidget):
     def setViewerPos(self, pos, setTime=False, setChannel=False):
         try:
             pos5d = self.validatePos(pos, dims=5)
-            
+
             # set xyz position
             pos3d = pos5d[1:4]
             self.editor.posModel.slicingPos = pos3d
-            
+
             # set time and channel if requested
             if setTime:
                 self.editor.posModel.time = pos5d[0]
@@ -519,50 +523,11 @@ class LayerViewerGui(QWidget):
         """
         Removes all hilite markers from all scenes
         """
-        for marker in self._hilite_marker:
-            marker.remove()
-        self._hilite_marker = []
-
-    def iter_scenes_with_coords(self, *positions):
-        zipped = [self.editor.imageScenes]
-        for position in positions:
-            zipped.append(combinations(reversed(position), 2))
-
-        for it in zip(*zipped):
-            s = it[0]
-            yield it
+        self.hilite.clear()
 
     @threadRouted
-    def hilite_position(self, pos3d):
-        """
-        Hilites the position with a cross
-        :param pos3d: the position for the cross
-        :type pos3d: (int, int, int) | [int, int, int]
-        """
-        self.clear_hilites()
-
-        self._hilite_marker = [HiliteCross((x, y), 5, scene)
-                               for scene, (y, x) in self.iter_scenes_with_coords(pos3d)]
-
-    @threadRouted
-    def hilite_object(self, top_left, bottom_right):
-        """
-        Hilites the region with a rect
-        This is used by the ilastik-KNIME bridge
-        Every setviewerposition is hilited
-        :param top_left: the x, y and z coordinate ( pos3D ) of the top left corner
-        :type top_left: (int, int, int) | [int, int, int]
-        :param bottom_right: the x, y and z coordinate ( pos3D ) of the bottom right corner
-        :type bottom_right: (int, int, int) | [int, int, int]
-        """
-        self.clear_hilites()
-
-        self._hilite_marker = [HiliteBB((x1, y1, x2, y2), 5, scene)
-                               for scene, (y1, x1), (y2, x2) in self.iter_scenes_with_coords(top_left, bottom_right)]
-
     def update_hilite_marker(self, *_):
-        for marker in self._hilite_marker:
-            marker.update()
+        self.hilite.update()
 
     def validatePos(self, pos, dims=5):
         if not isinstance(pos, list):

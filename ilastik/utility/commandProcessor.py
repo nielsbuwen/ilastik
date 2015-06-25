@@ -45,9 +45,16 @@ def clear_peers(target, protocol):
     target.facade.clear_peers(protocol)
 
 
-def set_position(target, t=0, x=0, y=0, z=0, c=0, **_):
+def set_position(target, t=0, x=0, y=0, z=0, c=0, keep=False, **_):
     try:
-        target.shell.setAllViewersPosition([t, x, y, z, c], hilite=True)
+        target.shell.setAllViewersPosition([t, x, y, z, c], hilite=True, keep=keep)
+    except IndexError:
+        pass  # No project loaded
+
+
+def unset_position(target, t=0, x=0, y=0, z=0, c=0, keep=True, **_):
+    try:
+        target.shell.unset_hilite((t, x, y, z, c), keep=keep)
     except IndexError:
         pass  # No project loaded
 
@@ -56,6 +63,7 @@ commands = {
     "clear peers": clear_peers,
     "handshake": handshake,
     "setviewerposition": set_position,
+    "unsetviewerposition": unset_position,
     "goodbye": goodbye,
 }
 
