@@ -464,7 +464,7 @@ class TCPServer(Binding, Receiving, QObject):
     def _start(self):
         try:
             server = BaseTCPServer((self.interface, self.port), Handler)
-        except socket.error as e:
+        except socket_error as e:
             self.server = None
             self.info.notify_server_status_update("running", False)
             if e.errno in [13, 98]:  # Permission denied or Address already in use
