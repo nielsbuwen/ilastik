@@ -1558,46 +1558,50 @@ class IlastikShell(QMainWindow):
                 if hasattr(applet, "connected_to_knime"):
                     applet.connected_to_knime = True
 
-    def setAllViewersPosition(self, pos, hilite=False, keep=False):
+    def setAllViewersPosition(self, pos):
         # operate on currently displayed applet first
-        self._setViewerPosition(self._applets[self.currentAppletIndex], pos, hilite=hilite, keep=keep)
+        self._setViewerPosition(self._applets[self.currentAppletIndex], pos)
 
         # now iterate over all other applets and change the viewer focus
         #for applet in self._applets:
         #    if not applet is self._applets[self.currentAppletIndex]:
         #        self._setViewerPosition(applet, pos)
 
-    def unset_hilite(self, pos, keep=True):
+    def set_hilite(self, timestep, object_id, keep=False):
+        gui = self.current_gui
+        if not keep:
+            gui.hilite.clear()
+
+        tl, br = gui.object_bb(timestep, object_id)
+        if tl is not None:
+            gui.hilite.add_object(timestep, tl, br, None)
+
+    def unset_hilite(self, timestep, object_id, keep=False):
+        gui = self.current_gui
+        if not keep:
+            gui.hilite.clear()
+            return
+        tl, br = gui.object_bb(timestep, object_id)
+        if tl is not None:
+            gui.hilite.remove(timestep, tl, br, None)
+
+    @property
+    def current_gui(self):
         gui = self._applets[self.currentAppletIndex].getMultiLaneGui()
         if isinstance(gui, SingleToMultiGuiAdapter):
             gui = gui.currentGui()
         if issubclass(type(gui), VolumeViewerGui):
-            if not keep:
-                gui.hilite.clear()
-            else:
-                tl, br = gui.object_bb_at(map(int, pos))
-                if tl is None:
-                    gui.hilite.remove(pos)
-                else:
-                    gui.hilite.remove(pos[0], tl, br, pos[-1])
+            return gui
+        raise RuntimeError("No Gui Found")
 
     @threadRouted
-    def _setViewerPosition(self, applet, pos, hilite=False, keep=False):
+    def _setViewerPosition(self, applet, pos):
         gui = applet.getMultiLaneGui()
         # test if gui is a Gui on its own or just created by a SingleToMultiGuiAdapter
         if isinstance(gui, SingleToMultiGuiAdapter):
             gui = gui.currentGui()
         # test if gui implements "setViewerPos()" method
         if issubclass(type(gui), VolumeViewerGui):
-            if hilite:
-                # assert isinstance(gui, ObjectClassificationGui)
-                if not keep:
-                    gui.hilite.clear()
-                tl, br = gui.object_bb_at(map(int, pos))
-                if tl is None:
-                    gui.hilite.add_cross(*pos)
-                else:
-                    gui.hilite.add_object(pos[0], tl, br, pos[-1])
             gui.setViewerPos(pos, setTime=True, setChannel=True)
 
     def enableProjectChanges(self, enabled):
