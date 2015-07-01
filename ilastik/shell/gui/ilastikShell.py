@@ -1572,18 +1572,18 @@ class IlastikShell(QMainWindow):
         if not keep:
             gui.hilite.clear()
 
-        tl, br = gui.object_bb(timestep, object_id)
+        tl, center, br, slices = gui.get_object_hilite_information(timestep, object_id)
         if tl is not None:
-            gui.hilite.add_object(timestep, tl, br, None)
+            gui.hilite.add(timestep, object_id, tl, center, br, slices)
+        else:
+            print "No object Found"
 
     def unset_hilite(self, timestep, object_id, keep=False):
         gui = self.current_gui
         if not keep:
             gui.hilite.clear()
             return
-        tl, br = gui.object_bb(timestep, object_id)
-        if tl is not None:
-            gui.hilite.remove(timestep, tl, br, None)
+        gui.hilite.remove(timestep, object_id)
 
     @property
     def current_gui(self):

@@ -1,3 +1,4 @@
+from numpy import uint8, require, append
 import logging
 from ilastik.utility.exportFile import ProgressPrinter
 from ilastik.utility import log_exception
@@ -101,8 +102,46 @@ class ExportingOperator(object):
 
 class ExportingGui(object):
     """
-    A Mixin for the GUI that can export h5/csv data
+    A Mixin for the GUI that can export h5/csv data and hilite objects
     """
+
+    def get_object_hilite_information(self, time, object_id):
+        """
+        :type time: int
+        :type object_id: int
+        :return: the bounding box (top_left, bot_right) of the object. Always x=0, y=0, z=0
+                If no object exists at the given position None is returned
+        :rtype: (numpy.ndarray, numpy.ndarray) | (None, None)
+        """
+        if object_id == 0:
+            return None, None, None, None
+
+        features = self.topLevelOperatorView.viewed_operator().ObjectFeatures[0]([time]).wait()
+        min_coord = map(int, features[time][u"Default features"][u"Coord<Minimum>"][object_id])
+        max_coord = map(int, features[time][u"Default features"][u"Coord<Maximum>"][object_id])
+        center = map(int, features[time][u"Default features"][u"RegionCenter"][object_id])
+
+        while len(min_coord) < 3:
+            min_coord = append(min_coord, [0])
+            max_coord = append(max_coord, [0])
+            center = append(center, [0])
+
+        time_slice = [slice(time, time + 1)]
+        ranges = [[slice(min_coord[i], max_coord[i] + 1)] for i in xrange(3)]
+        points = [[slice(center[i], center[i] + 1)] for i in xrange(3)]
+
+        slot = self.get_labeling_slot()
+        label_slices = [require(ls.wait().squeeze().T, uint8, "C") for ls in (
+            slot(time_slice + points[0] + ranges[1] + ranges[2]),
+            slot(time_slice + ranges[0] + points[1] + ranges[2]),
+            slot(time_slice + ranges[0] + ranges[1] + points[2]),
+        )]
+        for ls in label_slices:
+            ls[ls != object_id] = 0
+            ls[ls == object_id] = 255
+            require(ls, uint8, "C")
+
+        return min_coord, center, max_coord, label_slices
 
     def get_exporting_operator(self, lane=0):
         raise NotImplementedError
@@ -117,8 +156,7 @@ class ExportingGui(object):
         """
         # Late imports here, so we don't accidentally import PyQt during headless mode.
         from ilastik.widgets.exportObjectInfoDialog import ExportObjectInfoDialog
-        from ilastik.widgets.progressDialog import ProgressDialog
-        
+
         dimensions = self.get_raw_shape()
         feature_names = self.get_feature_names()
 
@@ -159,6 +197,13 @@ class ExportingGui(object):
         :rtype: dict
 
         e.g. return self.exportingOperator.ComputedFeatureNames([]).wait()
+        """
+        raise NotImplementedError
+
+    def get_labeling_slot(self):
+        """
+        Implement this to provide the labeling slot
+        :return: the labeling slot
         """
         raise NotImplementedError
 

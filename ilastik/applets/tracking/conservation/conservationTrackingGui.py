@@ -259,39 +259,6 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
     def get_export_dialog_title(self):
         return "Export Tracking Information"
 
-    def object_bb(self, time, object_id):
-        """
-        :type time: int
-        :type object_id: int
-        :return: the bounding box (top_left, bot_right) of the object. Always x=0, y=0, z=0
-                If no object exists at the given position None is returned
-        :rtype: (numpy.ndarray, numpy.ndarray) | (None, None)
-        """
-        if object_id == 0:
-            return None, None
-
-        features = self.topLevelOperatorView.viewed_operator().ObjectFeatures[0]([time]).wait()
-        min_coord = features[time][u"Default features"][u"Coord<Minimum>"][object_id]
-        max_coord = features[time][u"Default features"][u"Coord<Maximum>"][object_id]
-
-        while len(min_coord) < 3:
-            min_coord = numpy.append(min_coord, 0)
-            max_coord = numpy.append(max_coord, 0)
-
-        return min_coord, max_coord
-
-    def object_bb_at(self, position5d):
-        """
-        :param position5d: the position of the object
-        :type position5d: (int, int, int, int, int) | [int, int, int, int, int]
-        :return: the bounding box (top_left, bot_right) of the object. Always x=0, y=0, z=0
-                If no object exists at the given position None is returned
-        :rtype: (numpy.ndarray, numpy.ndarray) | (None, None)
-        """
-        obj, _ = self.get_object(position5d)
-        time = position5d[0]
-        return self.object_bb(time, obj)
-
     def handleEditorRightClick(self, position5d, win_coord):
         debug = ilastik_config.getboolean("ilastik", "debug")
 
@@ -329,7 +296,10 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
 
         if any(IPCFacade().sending):
             parameters = self.topLevelOperatorView.Parameters
-            multi_move_max = parameters.value["maxObj"] if parameters.ready() else 2
+            try:
+                multi_move_max = parameters.value["maxObj"] if parameters.ready() else 2
+            except KeyError:
+                multi_move_max = 1
 
             self.create_object_hilite_options(menu, obj, time)
 
@@ -364,3 +334,6 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
             menu.addAction("Start IPC Server", IPCFacade().start)
 
         menu.exec_(win_coord)
+
+    def get_labeling_slot(self):
+        return self.mainOperator.LabelImage

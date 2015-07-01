@@ -24,7 +24,7 @@ import os
 from functools import partial
 import logging
 from PyQt4.QtCore import QRectF, QPointF, Qt
-from volumina.hilite_marker import HiliteCross, HiliteBB, HiliteList
+from volumina.hilite_marker import HiliteList
 
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
@@ -192,6 +192,7 @@ class LayerViewerGui(QWidget):
         for scene in self.editor.imageScenes:
             scene.axesChanged.connect(self.hilite.update)
         self.editor.posModel.timeChanged.connect(self.hilite.change_timestep)
+        self.editor.posModel.slicingPositionChanged.connect(self.hilite.change_slice_position)
 
         
         
