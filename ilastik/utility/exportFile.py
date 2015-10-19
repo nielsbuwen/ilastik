@@ -85,17 +85,20 @@ def flatten_ilastik_feature_table(table, selection, signal):
     dtype_names = []
     dtype_types = []
     dtype_to_key = {}
+    name_set = set()
 
     for i, name in enumerate(feature_names):
-        if feature_channels[i] > 1:
-            for c in xrange(feature_channels[i]):
-                dtype_names.append("%s_%i" % (name, c))
+        if name not in name_set:
+            name_set.add(name)
+            if feature_channels[i] > 1:
+                for c in xrange(feature_channels[i]):
+                    dtype_names.append("%s_%i" % (name, c))
+                    dtype_types.append(feature_types[i].name)
+                    dtype_to_key[dtype_names[-1]] = (feature_cats[i], name, c)
+            else:
+                dtype_names.append(name)
                 dtype_types.append(feature_types[i].name)
-                dtype_to_key[dtype_names[-1]] = (feature_cats[i], name, c)
-        else:
-            dtype_names.append(name)
-            dtype_types.append(feature_types[i].name)
-            dtype_to_key[dtype_names[-1]] = (feature_cats[i], name, 0)
+                dtype_to_key[dtype_names[-1]] = (feature_cats[i], name, 0)
 
     feature_table = np.zeros((sum(obj_count),), dtype=",".join(dtype_types))
     feature_table.dtype.names = map(str, dtype_names)
