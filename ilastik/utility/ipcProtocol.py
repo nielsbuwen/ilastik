@@ -3,6 +3,25 @@ class Protocol(object):
     ValidHiliteModes = ["hilite", "unhilite", "toggle", "clear"]
 
     @staticmethod
+    def simple_op(op, column, value):
+        """
+        Builds a simple where clause for the hilite command
+
+        :param column: the column name
+        :param value: the value that the column needs to have
+        :returns: the where dict
+
+        e.g.
+        simple("==", lineage_id, 42)
+            => WHERE lineage_id == 42
+        """
+        return {
+            "operator": op,
+            "column": column,
+            "value": value
+        }
+
+    @staticmethod
     def simple(operator, *wheres, **attributes):
         """
         Builds a simple where clause for the hilite command
@@ -19,7 +38,7 @@ class Protocol(object):
         for name, value in attributes.iteritems():
             operands.append({
                 "operator": "==",
-                "row": name,
+                "column": name,
                 "value": value
             })
 
@@ -29,25 +48,31 @@ class Protocol(object):
         }
 
     @staticmethod
-    def simple_in(row, possibilities):
+    def simple_in(column, possibilities, wildcard_filler=None):
         """
         Builds a simple where clause ( using 'in' ) for the hilite command
 
-        :param row: the row name that must be in possibilities
-        :param possibilities: the possible values row can have
+        :param column: the column name that must be in possibilities
+        :param possibilities: the possible values column can have
+        :param wildcard_filler: a list that fills wildcard expressions '*'
         :returns: the where dict
 
         e.g.
         simple("track_id1", [42, 1337, 12345])
             => WHERE ( track_id1 == 42 OR track_id1 == 1337 OR track_id1 == 12345 )
+        simple("track_id*", [42, 1337], [1, 2])
+            => WHERE ( track_id1 == 42 OR track_id2 == 42 OR track_id1 == 1337 OR track_id2 == 1337 )
         """
         operands = []
-        for p in possibilities:
-            operands.append({
-                "operator": "==",
-                "row": row,
-                "value": p,
-            })
+        if wildcard_filler is None:
+            wildcard_filler = []
+        for filler in wildcard_filler:
+            for p in possibilities:
+                operands.append({
+                    "operator": "==",
+                    "column": column.replace("*", str(filler)),
+                    "value": p,
+                })
 
         return {
             "operator": "or",
@@ -115,6 +140,6 @@ class Protocol(object):
                 where.append(sub["operator"].upper())
             where.pop()
         else:
-            where.append(sub["row"])
+            where.append(sub["column"])
             where.append(sub["operator"].upper())
             where.append(str(sub["value"]))

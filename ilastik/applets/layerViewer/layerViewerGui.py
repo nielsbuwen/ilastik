@@ -19,9 +19,13 @@
 #		   http://ilastik.org/license.html
 ###############################################################################
 #Python
+from itertools import combinations
 import os
 from functools import partial
 import logging
+from PyQt4.QtCore import QRectF, QPointF, Qt
+from volumina.hilite_marker import HiliteList
+
 logger = logging.getLogger(__name__)
 traceLogger = logging.getLogger('TRACE.' + __name__)
 
@@ -47,6 +51,9 @@ from ilastik.utility import bind
 from ilastik.utility.gui import ThreadRouter, threadRouted
 from ilastik.config import cfg as ilastik_config
 from ilastik.widgets.viewerControls import ViewerControls
+from ilastik.shell.gui.ipcManager import IPCFacade
+from ilastik.utility.exportFile import Default
+from ilastik.utility.ipcProtocol import Protocol
 
 #===----------------------------------------------------------------------------------------------------------------===
 
@@ -121,6 +128,8 @@ class LayerViewerGui(QWidget):
         """
         super(LayerViewerGui, self).__init__()
 
+        # stores the crosses to indicate a setviewerposition
+
         self._stopped = False
         self._initialized = False
         self.__cleanup_fns = []
@@ -177,6 +186,15 @@ class LayerViewerGui(QWidget):
         
         # By default, we start out disabled until we have at least one layer.
         self.centralWidget().setEnabled(False)
+
+        self.hilite = HiliteList(self.editor.imageScenes)
+
+        for scene in self.editor.imageScenes:
+            scene.axesChanged.connect(self.hilite.update)
+        self.editor.posModel.timeChanged.connect(self.hilite.change_timestep)
+        self.editor.posModel.slicingPositionChanged.connect(self.hilite.change_slice_position)
+
+        
         
     def _after_init(self):
         self._initialized = True
@@ -464,11 +482,11 @@ class LayerViewerGui(QWidget):
     def setViewerPos(self, pos, setTime=False, setChannel=False):
         try:
             pos5d = self.validatePos(pos, dims=5)
-            
+
             # set xyz position
             pos3d = pos5d[1:4]
             self.editor.posModel.slicingPos = pos3d
-            
+
             # set time and channel if requested
             if setTime:
                 self.editor.posModel.time = pos5d[0]
@@ -479,7 +497,18 @@ class LayerViewerGui(QWidget):
         except Exception, e:
             logger.warn("Failed to navigate to position (%s): %s" % (pos, e))
         return
-    
+
+    @threadRouted
+    def clear_hilites(self, *_):
+        """
+        Removes all hilite markers from all scenes
+        """
+        self.hilite.clear()
+
+    @threadRouted
+    def update_hilite_marker(self, *_):
+        self.hilite.update()
+
     def validatePos(self, pos, dims=5):
         if not isinstance(pos, list):
             raise Exception("Wrong data format")
@@ -619,3 +648,36 @@ class LayerViewerGui(QWidget):
     def handleEditorLeftClick(self, position5d, globalWindowCoordiante):
         # Override me
         pass
+
+    @staticmethod
+    def create_background_hilite_options(menu, timestep):
+        """
+        This method adds two submenus to menu allowing to "hilite" the whole timestep or clearing all hilites.
+        This is used for the ilastik-KNIME IPC
+        :param menu: the QMenu to add submenus to
+        :param timestep: the current timestep
+        """
+
+        sub = menu.addMenu("Hilite Timestep")
+        where = Protocol.simple("or", **{Default.IlastikId["names"][0]: timestep})
+        for mode in Protocol.ValidHiliteModes[:-1]:
+            cmd = Protocol.cmd(mode, where)
+            sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+
+        menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+
+    @staticmethod
+    def create_object_hilite_options(menu, obj, timestep):
+        """
+        This method adds one submenu to menu allowing to "hilite" the given object.
+        This is use for the ilastik-KNIME IPC
+        :param menu: the QMenu to add the submenu to
+        :param obj: the object id of the object to hilite
+        :param timestep: the current timestep
+        """
+
+        sub = menu.addMenu("Hilite Object")
+        where = Protocol.simple("and", **dict(zip(Default.IlastikId["names"], (timestep, obj))))
+        for mode in Protocol.ValidHiliteModes[:-1]:
+                cmd = Protocol.cmd(mode, where)
+                sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))

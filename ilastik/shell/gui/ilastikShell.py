@@ -1583,9 +1583,36 @@ class IlastikShell(QMainWindow):
         self._setViewerPosition(self._applets[self.currentAppletIndex], pos)
 
         # now iterate over all other applets and change the viewer focus
-        for applet in self._applets:
-            if not applet is self._applets[self.currentAppletIndex]:
-                self._setViewerPosition(applet, pos)
+        #for applet in self._applets:
+        #    if not applet is self._applets[self.currentAppletIndex]:
+        #        self._setViewerPosition(applet, pos)
+
+    def set_hilite(self, timestep, object_id, keep=False):
+        gui = self.current_gui
+        if not keep:
+            gui.hilite.clear()
+
+        tl, center, br, slices = gui.get_object_hilite_information(timestep, object_id)
+        if tl is not None:
+            gui.hilite.add(timestep, object_id, tl, center, br, slices)
+        else:
+            print "No object Found"
+
+    def unset_hilite(self, timestep, object_id, keep=False):
+        gui = self.current_gui
+        if not keep:
+            gui.hilite.clear()
+            return
+        gui.hilite.remove(timestep, object_id)
+
+    @property
+    def current_gui(self):
+        gui = self._applets[self.currentAppletIndex].getMultiLaneGui()
+        if isinstance(gui, SingleToMultiGuiAdapter):
+            gui = gui.currentGui()
+        if issubclass(type(gui), VolumeViewerGui):
+            return gui
+        raise RuntimeError("No Gui Found")
 
     @threadRouted
     def _setViewerPosition(self, applet, pos):

@@ -23,6 +23,8 @@ from PyQt4 import uic
 from PyQt4.QtCore import pyqtSignal, pyqtSlot, Qt, QObject, pyqtBoundSignal
 from PyQt4.QtGui import QFileDialog
 from ilastik.shell.gui.ipcManager import IPCFacade, Protocol
+from ilastik.utility.exportFile import Default
+from ilastik.utility.exportingOperator import ExportingGui
 
 from ilastik.widgets.featureTableWidget import FeatureEntry
 from ilastik.widgets.featureDlg import FeatureDlg
@@ -675,13 +677,20 @@ class ObjectClassificationGui(LabelingGui):
             "Need to update onClick() if the operator no longer expects volumina axis order.  Operator wants: {}".format( operatorAxisOrder )
         self.topLevelOperatorView.assignObjectLabel(imageIndex, pos5d, label)
 
+    def get_labeling_slot(self):
+        return self.getLayer("Labels").segmentationImageSlot
+
     def handleEditorRightClick(self, position5d, globalWindowCoordinate):
         layer = self.getLayer('Labels')
         obj = self._getObject(layer.segmentationImageSlot, position5d)
-        if obj == 0:
-            return
+        time = position5d[0]
 
         menu = QMenu(self)
+        if obj == 0:
+            self.create_background_hilite_options(menu, time)
+            menu.exec_(globalWindowCoordinate)
+            return
+
         text = "Print info for object {} in the terminal".format(obj)
         menu.addAction(text)
 
@@ -689,18 +698,11 @@ class ObjectClassificationGui(LabelingGui):
         if ilastik_config.getboolean("ilastik", "debug"):
             menu.addSeparator()
             if any(IPCFacade().sending):
-                time = position5d[0]
-
-                sub = menu.addMenu("Hilite Object")
-                for mode in Protocol.ValidHiliteModes[:-1]:
-                    where = Protocol.simple("and", time=time, ilastik_id=obj)
-                    cmd = Protocol.cmd(mode, where)
-                    sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
-                menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+                self.create_object_hilite_options(menu, obj, time)
+                self.create_background_hilite_options(menu, time)
             else:
                 menu.addAction("Open IPC Server Window", IPCFacade().show_info)
                 menu.addAction("Start All IPC Servers", IPCFacade().start)
-
 
         menu.addSeparator()
         clearlabel = "Clear label for object {}".format(obj)

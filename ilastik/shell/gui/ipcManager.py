@@ -1,7 +1,6 @@
 from SocketServer import BaseRequestHandler, TCPServer as BaseTCPServer
 import logging
 import threading
-import atexit
 import json
 from itertools import chain
 from collections import OrderedDict
@@ -102,6 +101,40 @@ class IPCFacade(object):
             raise RuntimeError("No such protocol {}".format(protocol))
         self.protocol_map[protocol].add_peer(name, address)
 
+    def goodbye(self, protocol, name, address):
+        """
+        Redirects a goodbye command to the registered module
+        Currently only TCPClient handles goodbyes from TCPServer
+        :param protocol: the protocol to identify the handler ( e.g. tcp )
+        :param name: the name of the peer ( e.g. KNIME )
+        :param address: the address of the peer. Depends on the protocol ( e.g. for tcp => (str: host, int: port)
+        """
+        if protocol not in self.protocol_map:
+            raise RuntimeError("No such protocol{}".format(protocol))
+        self.protocol_map[protocol].remove_peer(name, address)
+
+    def clear_peers(self, protocol):
+        """
+        Redirects the clear peers command to the registered module
+        Currently only TCPClient handles clear_peer commands from TCPServer
+        :param protocol: the protocol to identify the handler ( e.g. tcp )
+        """
+        if protocol not in self.protocol_map:
+            raise RuntimeError("No such protocol {}".format(protocol))
+        self.protocol_map[protocol].clear_peers()
+
+    def handled_command(self, protocol, command, success):
+        """
+        Redirects the command to the registered module
+        Currently only TCPClient handles the received commands by TCPServer
+        :param protocol: the protocol to identify the handler ( e.g. tcp )
+        :param command: the handled command
+        :param success: True if the command was handled successfully
+        """
+        if protocol not in self.protocol_map:
+            raise RuntimeError("No such protocol {}".format(protocol))
+        self.protocol_map[protocol].handled_command(command, success)
+
     @property
     def sending(self):
         """
@@ -143,8 +176,8 @@ class IPCFacade(object):
             qtSignal.connect(action)
         :param command: the command ( dict )
         """
-        #from pprint import PrettyPrinter
-        #PrettyPrinter(indent=4).pprint(command)
+        # from pprint import PrettyPrinter
+        # PrettyPrinter(indent=4).pprint(command)
         message = json.dumps(command, cls=NumpyJsonEncoder)
         log = Protocol.verbose(command)
         for server in self.senders.itervalues():
@@ -221,11 +254,35 @@ class HasPeers(IPCModul):
         """
         raise NotImplementedError
 
+    def remove_peer(self, name, address):
+        """
+        Call this to remove a peer from the list
+        :param name: its name ( e.g. KNIME )
+        :param address: its address ( depends on the protocol )
+        """
+        raise NotImplementedError
+
+    def clear_peers(self):
+        """
+        Call this to disconnect all peers
+        :return:
+        """
+        raise NotImplementedError
+
     def update_peer(self, key, **kvargs):
         """
         Call this to change settings for a peer
         :param key: the internal identifier for the peer ( e.g. the index to the peer list )
         :param kvargs: key-value pairs that should be changed
+        """
+        raise NotImplementedError
+
+    def handled_command(self, command, success):
+        """
+        Call this to log the handled command
+        :param command: the handled command
+        :type command: dict
+        :param success: True if the command was handled successfully
         """
         raise NotImplementedError
 
@@ -356,8 +413,7 @@ class Handler(BaseRequestHandler):
             logger.exception(e)
             return
         name = command.pop("command")
-        if name == "handshake":
-            command.update({"protocol": "tcp"})
+        command.update({"protocol": "tcp"})
         command.update({"host": host})
 
         self.server.signal.emit(name, command)
@@ -367,7 +423,7 @@ class TCPServer(Binding, Receiving, QObject):
     """
     raw tcp server. accepts handshakes which will be forwarded to the TCPClient
     """
-    commandReceived = pyqtSignal(str, dict)
+    commandReceived = pyqtSignal([str, dict], [dict])
 
     def __init__(self, interface, port):
         super(TCPServer, self).__init__()
@@ -408,7 +464,7 @@ class TCPServer(Binding, Receiving, QObject):
     def _start(self):
         try:
             server = BaseTCPServer((self.interface, self.port), Handler)
-        except socket.error as e:
+        except socket_error as e:
             self.server = None
             self.info.notify_server_status_update("running", False)
             if e.errno in [13, 98]:  # Permission denied or Address already in use
@@ -432,6 +488,7 @@ class TCPServer(Binding, Receiving, QObject):
         self.info.notify_server_status_update("running", False)
         logger.info("IPC Server stopped")
         self.server = None
+        self.signal.emit("clear peers", {"protocol": "tcp"})
 
     def address_prompt(self, message="", level="Warning"):
         message = "{}. Change port".format(message)
@@ -446,6 +503,7 @@ class TCPClient(Sending, HasPeers):
     This module keeps a list of peers an connects to them if a message must be broadcast
     The tcp connection will be closed right after the messages were sent
     """
+
     def __init__(self):
         self.peers = OrderedDict()
 
@@ -468,6 +526,22 @@ class TCPClient(Sending, HasPeers):
             self.peers[key]["address"][1] = port
         else:
             return
+        self.info.update_connections(self.peers)
+
+    def remove_peer(self, name, address):
+        host, port = address
+        key = (host, name)
+        if key in self.peers:
+            del self.peers[key]
+        else:
+            logger.warn("Could not remove peer: {} Does not exist".format(key))
+        self.info.update_connections(self.peers)
+
+    def handled_command(self, command, success):
+        self.info.add_command(command, success)
+
+    def clear_peers(self):
+        self.peers = OrderedDict()
         self.info.update_connections(self.peers)
 
     def update_peer(self, key, **kvargs):
@@ -546,7 +620,7 @@ class ZMQPublisher(ZMQBase, Sending):
         self.socket = None
         self.info = None
 
-        #atexit.register(self.stop)
+        # atexit.register(self.stop)
 
     def connect_widget(self, widget):
         self.info = widget
@@ -663,4 +737,5 @@ class ZMQSubscriber(QObject, ZMQBase, Receiving):
             if s.get(self.socket) == zmq.POLLIN:
                 command = self.socket.recv_json()
                 name = command.pop("command")
+                command.update({"protocol": self.protocol})
                 self.signal.emit(name, command)

@@ -5,9 +5,11 @@ import logging
 import sys
 import re
 import traceback
+import numpy
 from PyQt4.QtCore import pyqtSignal
 from ilastik.applets.tracking.base.trackingBaseGui import TrackingBaseGui
 from ilastik.utility import log_exception
+from ilastik.utility.exportFile import Default
 from ilastik.utility.exportingOperator import ExportingGui
 from ilastik.utility.gui.threadRouter import threadRouted
 from ilastik.utility.gui.titledMenu import TitledMenu
@@ -303,8 +305,7 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
         obj, time = self.get_object(position5d)
         if obj == 0:
             menu = TitledMenu(["Background"])
-            if debug:
-                menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+            self.create_background_hilite_options(menu, time)
             menu.exec_(win_coord)
             return
 
@@ -344,12 +345,13 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
             return
 
         if any(IPCFacade().sending):
+            parameters = self.topLevelOperatorView.Parameters
+            try:
+                multi_move_max = parameters.value["maxObj"] if parameters.ready() else 2
+            except KeyError:
+                multi_move_max = 1
 
-            obj_sub_menu = menu.addMenu("Hilite Object")
-            for mode in Protocol.ValidHiliteModes:
-                where = Protocol.simple("and", ilastik_id=obj, time=time)
-                cmd = Protocol.cmd(mode, where)
-                obj_sub_menu.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
+            self.create_object_hilite_options(menu, obj, time)
 
             sub_menus = [
                 ("Tracks", Protocol.simple_in, tracks),
@@ -360,17 +362,28 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
                 if args:
                     sub = menu.addMenu("Hilite {}".format(name))
                     for mode in Protocol.ValidHiliteModes[:-1]:
-                        mode = mode.capitalize()
-                        where = protocol("track_id*", args)
+                        mode = mode
+                        where = protocol("track_id*", args, wildcard_filler=range(1, multi_move_max+1))
                         cmd = Protocol.cmd(mode, where)
-                        sub.addAction(mode, IPCFacade().broadcast(cmd))
+                        sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
                 else:
                     sub = menu.addAction("Hilite {}".format(name))
                     sub.setEnabled(False)
+            sub = menu.addMenu("Hilite Lineage")
+            for mode in Protocol.ValidHiliteModes[:-1]:
+                where_dict = {
+                    Default.Lineage["names"][0]: color
+                }
+                where = Protocol.simple("or", **where_dict)
+                cmd = Protocol.cmd(mode, where)
+                sub.addAction(mode.capitalize(), IPCFacade().broadcast(cmd))
 
-            menu.addAction("Clear Hilite", IPCFacade().broadcast(Protocol.cmd("clear")))
+            self.create_background_hilite_options(menu, time)
         else:
             menu.addAction("Open IPC Server Window", IPCFacade().show_info)
             menu.addAction("Start IPC Server", IPCFacade().start)
 
         menu.exec_(win_coord)
+
+    def get_labeling_slot(self):
+        return self.mainOperator.LabelImage
