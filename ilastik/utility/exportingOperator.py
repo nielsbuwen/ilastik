@@ -13,7 +13,7 @@ class ExportingOperator(object):
     A Mixin for the Operators that can export h5/csv data
     """
     
-    def configure_table_export_settings(settings, selected_features):
+    def configure_table_export_settings(self, settings, selected_features):
         raise NotImplementedError
 
     def get_table_export_settings(self):
