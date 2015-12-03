@@ -326,10 +326,11 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
             try:
                 color = self.mainOperator.label2color[time][obj]
                 track = [self.mainOperator.track_id[time][obj]][0]
+                tracks = [track]
             except (IndexError, KeyError):
                 color = None
-                track = []
-            tracks = [track]
+                track = 0
+                tracks = [] 
 
         if track:
             children, parents = self.mainOperator.track_family(track)
