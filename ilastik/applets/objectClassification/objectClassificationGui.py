@@ -687,7 +687,11 @@ class ObjectClassificationGui(LabelingGui, ExportingGui):
 
         menu = QMenu(self)
         if obj == 0:
-            self.create_background_hilite_options(menu, time)
+            if any(IPCFacade().sending):
+                self.create_background_hilite_options(menu, time)
+            else:
+                menu.addAction("Open IPC Server Window", IPCFacade().show_info)
+                menu.addAction("Start All IPC Servers", IPCFacade().start)
             menu.exec_(globalWindowCoordinate)
             return
 

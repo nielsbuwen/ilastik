@@ -305,7 +305,11 @@ class ConservationTrackingGui(TrackingBaseGui, ExportingGui):
         obj, time = self.get_object(position5d)
         if obj == 0:
             menu = TitledMenu(["Background"])
-            self.create_background_hilite_options(menu, time)
+            if any(IPCFacade().sending):
+                self.create_background_hilite_options(menu, time)
+            else:
+                menu.addAction("Open IPC Server Window", IPCFacade().show_info)
+                menu.addAction("Start IPC Server", IPCFacade().start)
             menu.exec_(win_coord)
             return
 
