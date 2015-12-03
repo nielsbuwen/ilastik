@@ -70,17 +70,19 @@ class IPCFacade(object):
         :param protocol: set this to redirect handshake command with the matching protocol to this module
         :param start: if set the module will start immediately
         """
-        if type_ == "receiver":
-            container = self.receivers
+        containers = []
+        if "receiver" in type_:
+            containers.append(self.receivers)
             self.processor.connect_receiver(module)
-        elif type_ == "sender":
-            container = self.senders
-        else:
+        if "sender" in type_:
+            containers.append(self.senders)
+        if not containers:
             raise RuntimeError("Type {} is invalid".format(type_))
 
-        if key in container:
+        if any(key in container for container in containers):
             raise RuntimeError("{} {} already exists".format(type_, key))
-        container[key] = module
+        for container in containers:
+            container[key] = module
         if widget_key is not None:
             module.connect_widget(self.widgets[widget_key])
         if protocol is not None:
@@ -149,6 +151,13 @@ class IPCFacade(object):
         The same as IPCFacade.sending for the receivers
         """
         return (rec.running for rec in self.receivers.itervalues())
+
+    @property
+    def running(self):
+        """
+        Combined sending and receiving
+        """
+        return chain(self.receiving, self.sending)
 
     def start(self):
         """
@@ -739,3 +748,69 @@ class ZMQSubscriber(QObject, ZMQBase, Receiving):
                 name = command.pop("command")
                 command.update({"protocol": self.protocol})
                 self.signal.emit(name, command)
+
+
+class Loopback(QObject, Receiving, Sending):
+    """This module simply returns (un)hilites back to ilastik"""
+    commandReceived = pyqtSignal(str, dict)
+
+    @property
+    def widget(self):
+        return self.info
+
+    @staticmethod
+    def available(mode=None):
+        return True
+
+    def connect_widget(self, widget):
+        self.info = widget
+        self.info.optionsChanged.connect(self._update_config)
+        self._update_config()
+
+    @property
+    def signal(self):
+        return self.commandReceived
+
+    def _broadcast(self, message):
+        command = json.loads(message)
+        name = command.get("command")
+        if name == "hilite" and command.get("mode") in self.loopbacks:
+            command["protocol"] = "loopback"
+            method = command.pop("mode")
+            if method == "clear":
+                command["keep"] = False
+                command["method"] = "unhilite"
+            else:
+                command["method"] = method
+                try:
+                    operands = command.pop("where")["operands"]
+                    remap = {
+                        "timestep": "t",
+                        "labelimage_oid": "oid"
+                    }
+                    where = {remap[op["column"]]: op["value"] for op in operands}
+                except KeyError:
+                    # only simple object hilite supported
+                    return
+                else:
+                    command.update(where)
+            self.signal.emit("ilastikhilite", command)
+
+    hilite = "hilite"
+    unhilite = "unhilite"
+    clear = "clear"
+
+    def __init__(self, *args, **kwargs):
+        super(Loopback, self).__init__(*args, **kwargs)
+        self.loopbacks = []
+        self.info = None
+
+    @property
+    def running(self):
+        return self.hilite in self.loopbacks
+
+    def _update_config(self):
+        self.loopbacks = list(self.info.loopbacks)
+
+    def __getattr__(self, item):
+        return lambda *args, **kwargs: None

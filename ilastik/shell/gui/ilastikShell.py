@@ -41,6 +41,7 @@ from PyQt4.QtGui import QMainWindow, QWidget, QMenu, QApplication, \
     QHBoxLayout, QSizePolicy, QDesktopServices, QLabel
 
 # lazyflow
+from ilastik.widgets.ipcserver.loopbackInfoWidget import LoopbackInfoWidget
 from ilastik.widgets.ipcserver.tcpServerInfoWidget import TCPServerInfoWidget
 from ilastik.widgets.ipcserver.zmqPubSubInfoWidget import ZMQPublisherInfoWidget
 from lazyflow.roi import TinyVector
@@ -74,7 +75,8 @@ from ilastik.shell.gui.licenseDialog import LicenseDialog
 from ilastik.widgets.appletDrawerToolBox import AppletDrawerToolBox
 from ilastik.widgets.filePathButton import FilePathButton
 
-from ilastik.shell.gui.ipcManager import IPCFacade, TCPServer, TCPClient, ZMQPublisher, ZMQSubscriber, ZMQBase
+from ilastik.shell.gui.ipcManager import IPCFacade, TCPServer, TCPClient, ZMQPublisher, ZMQSubscriber, ZMQBase, \
+    Loopback
 import os
 
 # Import all known workflows now to make sure they are all registered with getWorkflowFromName()
@@ -284,6 +286,9 @@ class IlastikShell(QMainWindow):
             start = ilastik_config.getboolean("ipc raw tcp", "autostart")
             facade.register_module(TCPServer(interface, port), "receiver", "raw tcp server", "raw tcp", start=start)
             facade.register_module(TCPClient(), "sender", "raw tcp client", "raw tcp", "tcp")
+
+            facade.register_widget(LoopbackInfoWidget(), "Loopback", "loopback")
+            facade.register_module(Loopback(), "receiver sender", *["loopback"]*3)
 
             if ZMQBase.available("tcp"):
                 facade.register_widget(ZMQPublisherInfoWidget(), "ZeroMQ Pub Sub TCP", "zmq tcp")
@@ -1678,7 +1683,7 @@ class IlastikShell(QMainWindow):
             gui = gui.currentGui()
         if issubclass(type(gui), VolumeViewerGui):
             return gui
-        raise RuntimeError("No Gui Found")
+        return gui
 
     @threadRouted
     def _setViewerPosition(self, applet, pos):
